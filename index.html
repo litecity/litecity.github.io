@@ -70,6 +70,12 @@ button,input,select,textarea{font:inherit;color:inherit}
   background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:2px 8px;pointer-events:none}
 .hint{position:absolute;left:8px;right:8px;bottom:8px;font-size:12.5px;color:var(--ink);pointer-events:none;
   background:color-mix(in srgb,var(--panel) 86%,transparent);border-radius:4px;padding:4px 8px;width:fit-content;max-width:calc(100% - 16px)}
+.edge{position:absolute;pointer-events:none;display:grid;place-items:center;color:var(--ink);font-size:12px;opacity:.28;transition:opacity .15s,background .15s}
+.edge.e-t,.edge.e-b{left:46px;right:46px;height:46px} .edge.e-l,.edge.e-r{top:46px;bottom:46px;width:46px}
+.edge.e-t{top:0} .edge.e-b{bottom:0} .edge.e-l{left:0} .edge.e-r{right:0}
+.edge.on{opacity:1;background:color-mix(in srgb,var(--panel) 45%,transparent)}
+.shopping .edge,.nomouse .edge{display:none}
+@media (hover:none){.edge{display:none}}
 .nogl{position:absolute;inset:0;display:grid;place-items:center;padding:20px;text-align:center;color:var(--mute)}
 
 .shelf{display:flex;gap:10px;align-items:stretch;min-width:0}
@@ -264,6 +270,7 @@ button,input,select,textarea{font:inherit;color:inherit}
     <section class="pane" id="p3">
       <canvas id="c3" aria-label="三维实景"></canvas>
       <div class="tag" id="tag3">实景 · 3D</div>
+      <div class="edge e-t" aria-hidden="true">▲</div><div class="edge e-b" aria-hidden="true">▼</div><div class="edge e-l" aria-hidden="true">◀</div><div class="edge e-r" aria-hidden="true">▶</div>
       <div class="hint" id="hint3">拖动旋转 · 滚轮缩放 · Shift 或右键拖动平移</div>
     </section>
   </main>
@@ -363,7 +370,7 @@ const GN = 512, VN = GN + 1, HALF = 9000, CELL = HALF * 2 / GN;   // 地形：18
 const CH = 64, CN = GN / CH, CV = (CH + 1) * (CH + 1), RV = GN / 2 + 1;   // 8×8 个分块，每块 65×65 顶点；平面图底图 257×257
 let TH = null, RH = null, terrDirty = false, terrCv = null, hyd = null;
 const terr = { mesh: null, wet: null, img: null, dirty: new Uint8Array(CN * CN), full: false, lo: 0, hi: 0 };
-const ui = { tool: 'select', asset: 'house', rot: 0, snap: true, sel: null, hover: null, rs: null, rc: null, tmode: 'brush', drag: null, tol: 4 };
+const ui = { tool: 'select', asset: 'house', rot: 0, snap: true, sel: null, hover: null, rs: null, rc: null, tmode: 'brush', cand: null, drag: null, tol: 4 };
 const shop = { open: false, draft: null, sel: -1, editId: null };
 const KEY = 'vector-city-1';
 const serialize = () => ({ v: 1, assets: Object.values(S.assets).filter(a => !a.builtin).map(a => ({ id: a.id, name: a.name, parts: a.parts })), roads: S.roads, blds: S.blds, env: S.env });
@@ -377,7 +384,7 @@ function restore(d) {
   const e = d.env || {}; S.env = { water: Number.isFinite(e.water) ? e.water : null, lakes: e.lakes != null ? !!e.lakes : !!e.rivers, rivers: !!e.rivers, thr: clamp(+e.thr || 300, 5, 50000),
     src: (Array.isArray(e.src) ? e.src : []).filter(q => q && isFinite(q.x) && isFinite(q.z) && isFinite(q.h)).slice(0, 50).map(q => ({ x: +q.x, z: +q.z, h: +q.h })),
     canals: (Array.isArray(e.canals) ? e.canals : []).filter(k => k && Array.isArray(k.a) && Array.isArray(k.b) && Array.isArray(k.c) && [k.w, k.d, k.z0, k.z1].every(Number.isFinite)).slice(0, 200) };
-  ui.sel = null; ui.rs = ui.rc = null; ui.drag = null; terr.full = true; terrDirty = true;
+  ui.sel = ui.cand = null; ui.rs = ui.rc = null; ui.drag = null; terr.full = true; terrDirty = true;
 }
 let saveBytes = 0;
 function save() { const s = JSON.stringify(serialize()); saveBytes = s.length; try { localStorage.setItem(KEY, s); } catch (e) {} }
@@ -519,14 +526,18 @@ function press(w, forced) {
   if (ui.tool === 'terrain' && ui.tmode === 'brush') { pushUndoTerr(); ui.drag = { k: 'brush' }; brush(w); return true; }
   if (ui.tool === 'select') {
     const h = forced || hit(w, ui.tol);
-    if (!h) { ui.sel = null; req(); return false; }
+    if (!h) { ui.sel = ui.cand = null; req(); return false; }
     if (h.k === 'h') {
       pushUndo(); const r0 = S.roads[ui.sel.i], group = [];
       if (h.h !== 'm') for (const r of S.roads) for (const e of ['a', 'b']) if (dist2(r[e], r0[h.h]) < 0.3) group.push({ r, e });   // 同一节点上的路一起动
       ui.drag = { k: 'h', h: h.h, group, skip: new Set(group.map(g => g.r)) }; return true;
     }
-    ui.sel = { k: h.k, i: h.i };
-    if (h.k === 'bld') { const b = S.blds[h.i]; pushUndo(); ui.drag = { k: 'bld', dx: b.x - w[0], dz: b.z - w[1] }; req(); return true; }
+    if (ui.sel && ui.sel.k === h.k && ui.sel.i === h.i) {                        // 已选中：建筑可以直接拖
+      if (h.k === 'bld') { const b = S.blds[h.i]; pushUndo(); ui.drag = { k: 'bld', dx: b.x - w[0], dz: b.z - w[1] }; req(); return true; }
+      return false;
+    }
+    if (ui.cand && ui.cand.k === h.k && ui.cand.i === h.i) { ui.sel = { k: h.k, i: h.i }; ui.cand = null; }   // 第二下：选中
+    else { ui.sel = null; ui.cand = { k: h.k, i: h.i }; }                          // 第一下：只是预选，不会被误拖
     req(); return false;
   }
   if (pathTool()) {
@@ -539,7 +550,7 @@ function press(w, forced) {
   if (ui.tool === 'build') { pushUndo(); S.blds.push(poseAt(w)); changed(); return true; }
   if (ui.tool === 'erase') {
     const h = hit(w, ui.tol);
-    if (h && h.k !== 'h') { pushUndo(); (h.k === 'bld' ? S.blds : S.roads).splice(h.i, 1); ui.sel = null; changed(); }
+    if (h && h.k !== 'h') { pushUndo(); (h.k === 'bld' ? S.blds : S.roads).splice(h.i, 1); ui.sel = ui.cand = null; changed(); }
     return true;
   }
   return false;
@@ -572,20 +583,20 @@ function release(w, isDrag) {
   req();
 }
 function setTool(t) {
-  ui.tool = t; ui.rs = ui.rc = null; if (t !== 'select') ui.sel = null;
+  ui.tool = t; ui.rs = ui.rc = null; if (t !== 'select') ui.sel = ui.cand = null;
   $('#terra').hidden = t !== 'terrain'; $('#stage').classList.toggle('shopping', t === 'terrain'); if (t === 'terrain') updateTerrRead();
   document.querySelectorAll('#tools button').forEach(b => b.setAttribute('aria-pressed', b.dataset.tool === t));
   document.querySelectorAll('#palette .card[data-id]').forEach(c => c.setAttribute('aria-pressed', t === 'build' && c.dataset.id === ui.asset));
   setHint(); req();
 }
 function setHint() {
-  const H = { select: '点一条路，拖菱形手柄调弯道，拖圆形端点改走向。建筑可拖动，R 旋转，Delete 删除。两边双击空地都能让实景飞过去。',
+  const H = { select: '点一下预选（虚线框），再点一下才选中。选中的路可拖菱形手柄调弯、拖端点改走向；选中的建筑可拖动，R 旋转，Delete 删除。双击空地让实景飞过去。',
     road: '直线：按住拖出或点两下。自由曲线：点起点，拉出虚线定方向后点一下，再转到终点点一下确定。相交处自动生成路口。', build: '在任意一侧点击放置。靠近道路会自动贴边并面向道路，R 旋转 15°。', erase: '点击道路或建筑即可拆除。',
     terrain: '按住拖动，把地面抹到目标海拔（挖湖就填负数）。按 E 吸取光标处海拔。' };
   $('#hint2').textContent = shop.open ? '车间平面：点选并拖动部件。下方是正面（朝路的一侧）。' : ui.tool === 'terrain' && ui.tmode === 'canal' ? '像修路一样画沟渠：直线拖出或点两下，自由曲线点三下（顶栏“画法”）。渠底从起点向终点一路下降，上游陡、下游缓。' : ui.tool === 'terrain' && ui.tmode === 'water' ? '点一下放水点：与它连通、低于水面海拔的地方会淹成一片平的水面。再点水点可删除。按 E 取光标处海拔 +5 m。' : H[ui.tool];
   $('#tag2').textContent = shop.open ? '车间 · 俯视' : '平面图 · 俯视';
   $('#tag3').textContent = shop.open ? '车间 · 3D 预览' : '实景 · 3D';
-  $('#hint3').textContent = ui.tool === 'terrain' && !shop.open ? (ui.tmode === 'brush' ? '左键拖动抹地形 · 右键拖动旋转 · Shift 拖动平移' : '点击落点 · 拖动旋转 · 滚轮缩放 · Shift 或右键拖动平移') : '拖动旋转 · 滚轮缩放 · Shift 或右键拖动平移 · 双击前往';
+  $('#hint3').textContent = ui.tool === 'terrain' && !shop.open ? (ui.tmode === 'brush' ? '左键拖动抹地形 · 右键拖动旋转 · Shift 拖动平移' : '点击落点 · 拖动旋转 · 滚轮缩放 · Shift 或右键拖动平移') : '拖动旋转 · 滚轮缩放 · 鼠标移到四边可前进后退左右走 · 双击前往';
 }
 function rotate(dir) {
   const st = 15 * D2R * dir;
@@ -593,7 +604,7 @@ function rotate(dir) {
   if (ui.sel && ui.sel.k === 'bld') { pushUndo(); S.blds[ui.sel.i].r += st; changed(); } else { ui.rot += st; req(); }
 }
 function removeSel() {
-  if (!ui.sel) return; pushUndo(); (ui.sel.k === 'bld' ? S.blds : S.roads).splice(ui.sel.i, 1); ui.sel = null; changed();
+  if (!ui.sel) return; pushUndo(); (ui.sel.k === 'bld' ? S.blds : S.roads).splice(ui.sel.i, 1); ui.sel = ui.cand = null; changed();
 }
 
 /* ───────── 网格：一个可增长的交错顶点缓冲，20 字节/顶点 ───────── */
@@ -1146,10 +1157,11 @@ function buildDyn() {
       for (const e of [r.a, r.b]) emitPart(m, { s: 'cyl', x: e[0], z: e[1], y: H(e[0], e[1]), w: k * 1.3, d: k * 1.3, h: k * 1.6 }, ID_TF, sel);
       emitPart(m, { s: 'pyr', x: mid[0], z: mid[1], y: H(mid[0], mid[1]), w: k * 1.6, d: k * 1.6, h: k * 2.4, r: 45 }, ID_TF, acc);
     }
-    if (ui.sel && ui.sel.k === 'bld' && S.blds[ui.sel.i]) {
-      const b = S.blds[ui.sel.i], f = fp(S.assets[b.a]), c = Math.cos(b.r), s = Math.sin(b.r), y0 = H(b.x, b.z), tf = (x, y, z) => [b.x + x * c - z * s, y0 + y, b.z + x * s + z * c];
-      const w = f.w + 2, d = f.d + 2, t = Math.max(0.5, k * 0.25);
-      for (const [x, z, pw, pd] of [[0, -d / 2, w, t], [0, d / 2, w, t], [-w / 2, 0, t, d], [w / 2, 0, t, d]]) emitPart(m, { s: 'box', x, z, y: 0, w: pw, d: pd, h: 0.6 }, tf, sel);
+    if (ui.cand && ui.cand.k === 'road' && S.roads[ui.cand.i]) ribbon(m, roadPts(S.roads[ui.cand.i]), S.roads[ui.cand.i].w / 5, L, acc, 255);
+    for (const [it, colr, thick] of [[ui.sel, sel, 1], [ui.cand, acc, 0.5]]) if (it && it.k === 'bld' && S.blds[it.i]) {
+      const b = S.blds[it.i], f = fp(S.assets[b.a]), c = Math.cos(b.r), s = Math.sin(b.r), y0 = H(b.x, b.z), tf = (x, y, z) => [b.x + x * c - z * s, y0 + y, b.z + x * s + z * c];
+      const w = f.w + 2, d = f.d + 2, t = Math.max(0.5, k * 0.25) * thick;
+      for (const [x, z, pw, pd] of [[0, -d / 2, w, t], [0, d / 2, w, t], [-w / 2, 0, t, d], [w / 2, 0, t, d]]) emitPart(m, { s: 'box', x, z, y: 0, w: pw, d: pd, h: 0.6 }, tf, colr);
     }
   }
   if (gl) { gl.bindBuffer(gl.ARRAY_BUFFER, bufD); gl.bufferData(gl.ARRAY_BUFFER, m.u.subarray(0, m.n * 20), gl.DYNAMIC_DRAW); }
@@ -1267,6 +1279,12 @@ function draw2() {
       for (const e of [r.a, r.b]) { g.beginPath(); g.arc(e[0] * s, e[1] * s, 6, 0, TAU); g.fillStyle = T.panel; g.fill(); g.lineWidth = 2; g.strokeStyle = T.sel; g.stroke(); }
       g.save(); g.translate(m[0] * s, m[1] * s); g.rotate(Math.PI / 4); g.fillStyle = T.accent; g.fillRect(-6, -6, 12, 12); g.strokeStyle = T.ink; g.lineWidth = 1.5; g.strokeRect(-6, -6, 12, 12); g.restore();
     }
+    if (ui.cand) {                                                             // 预选：虚线
+      g.strokeStyle = T.accent; g.lineWidth = 2; g.setLineDash([6, 5]);
+      if (ui.cand.k === 'road' && S.roads[ui.cand.i]) { roadPath(g, S.roads[ui.cand.i], s); g.stroke(); }
+      if (ui.cand.k === 'bld' && S.blds[ui.cand.i]) { const b = S.blds[ui.cand.i], f = fp(S.assets[b.a]); g.save(); g.translate(b.x * s, b.z * s); g.rotate(b.r); g.strokeRect(-f.w / 2 * s - 3, -f.d / 2 * s - 3, f.w * s + 6, f.d * s + 6); g.restore(); }
+      g.setLineDash([]);
+    }
     if (ui.sel && ui.sel.k === 'bld' && S.blds[ui.sel.i]) {
       const b = S.blds[ui.sel.i], f = fp(S.assets[b.a]);
       g.save(); g.translate(b.x * s, b.z * s); g.rotate(b.r); g.strokeStyle = T.sel; g.lineWidth = 2; g.strokeRect(-f.w / 2 * s - 3, -f.d / 2 * s - 3, f.w * s + 6, f.d * s + 6); g.restore();
@@ -1301,6 +1319,12 @@ let fly = null;
 function flyTo(x, z, d) { fly = { x0: camCity.tx, z0: camCity.tz, d0: camCity.dist, x, z, d, t0: performance.now() }; req(); }
 function frame() {
   raf = 0; frames++;
+  const now = performance.now(), dt = Math.min(0.05, (now - lastT) / 1000); lastT = now;
+  if (edge && !shop.open) {                                                    // 鼠标停在边缘区：镜头朝那边匀速走（先停顿 0.2 秒，免得路过时误触）
+    if (now - edge.t0 > 220) { const c = camCity, v = c.dist * 0.9 * dt, sy = Math.sin(c.yaw), cy = Math.cos(c.yaw);
+      c.tx = clamp(c.tx + (cy * edge.fx - sy * edge.fz) * v, -HALF * 1.3, HALF * 1.3); c.tz = clamp(c.tz + (-sy * edge.fx - cy * edge.fz) * v, -HALF * 1.3, HALF * 1.3); }
+    req();
+  }
   if (fly) {                                                                   // 飞行只在这几百毫秒里连续出帧
     const k = Math.min(1, (performance.now() - fly.t0) / 480), e = k * k * (3 - 2 * k);
     camCity.tx = fly.x0 + (fly.x - fly.x0) * e; camCity.tz = fly.z0 + (fly.z - fly.z0) * e; camCity.dist = fly.d0 + (fly.d - fly.d0) * e;
@@ -1358,9 +1382,12 @@ c2.addEventListener('wheel', e => {
   const ns = clamp(v.s * k, shop.open ? 1.5 : 0.015, shop.open ? 40 : 12); v.cx = w[0] - (w[0] - v.cx) * v.s / ns; v.cz = w[1] - (w[1] - v.cz) * v.s / ns; v.s = ns; req();
 }, { passive: false });
 c2.addEventListener('dblclick', e => { if (shop.open || ui.tool !== 'select') return; const w = toWorld2(e); if (hit(w, ui.tol)) return; flyTo(w[0], w[1], camCity.dist); });
-c3.addEventListener('dblclick', e => { if (shop.open || ui.tool !== 'select') return; const w = groundHit(rayAt(e)); if (w) flyTo(w[0], w[1], Math.max(140, camCity.dist * 0.55)); });
+c3.addEventListener('dblclick', e => { if (shop.open || ui.tool !== 'select') return; const ray = rayAt(e), w = groundHit(ray); if (pickBld(ray) >= 0 || (w && hit(w, ui.tol))) return; if (w) flyTo(w[0], w[1], Math.max(140, camCity.dist * 0.55)); });
 // 右：实景
-let m3 = null;
+let m3 = null, edge = null, lastT = 0;
+function setEdge(v) { edge = v; const on = (c, f) => $('.edge.' + c).classList.toggle('on', !!f); on('e-t', v && v.fz > 0); on('e-b', v && v.fz < 0); on('e-l', v && v.fx < 0); on('e-r', v && v.fx > 0); }
+c3.addEventListener('pointerleave', () => setEdge(null));
+c3.addEventListener('pointerdown', () => setEdge(null));
 gestures(c3, {
   down(e) {
     const brushing = ui.tool === 'terrain' && ui.tmode === 'brush' && !shop.open;
@@ -1371,7 +1398,7 @@ gestures(c3, {
     if (ui.tool === 'select') {
       const ray = rayAt(e), w = groundHit(ray), bi = pickBld(ray);
       const h = bi >= 0 ? { k: 'bld', i: bi } : (w && hit(w, ui.tol));
-      if (h && (h.k === 'bld' || h.k === 'h')) { const b = S.blds[h.i]; if (press(w || [b.x, b.z], h)) m3.mode = 'tool'; }
+      if (h && (h.k === 'h' || (h.k === 'bld' && ui.sel && ui.sel.k === 'bld' && ui.sel.i === h.i))) { const b = S.blds[h.i]; if (press(w || [b.x, b.z], h)) m3.mode = 'tool'; }   // 只有手柄和已选中的建筑能拖
     }
   },
   move(e, dx, dy) {
@@ -1384,10 +1411,20 @@ gestures(c3, {
   up(e) {
     if (!m3) return; const w = groundHit(rayAt(e));
     if (m3.mode === 'tool') release(w, true);
-    else if (m3.moved < 6 && m3.btn === 0 && !shop.open && w) { ui.tol = Math.max(2, camCity.dist * 0.02); press(w); release(w, false); }
+    else if (m3.moved < 6 && m3.btn === 0 && !shop.open) {
+      ui.tol = Math.max(2, camCity.dist * 0.02);
+      const bi = ui.tool === 'select' ? pickBld(rayAt(e)) : -1, p = w || (bi >= 0 ? [S.blds[bi].x, S.blds[bi].z] : null);
+      if (p) { press(p, bi >= 0 ? { k: 'bld', i: bi } : undefined); release(p, false); }
+    }
     m3 = null;
   },
-  hover(e) { if (shop.open) return; ui.tol = Math.max(2, camCity.dist * 0.02); ui.hover = groundHit(rayAt(e)); if (ui.tool !== 'select' || ui.rs) req(); },
+  hover(e) {
+    if (shop.open) return; ui.tol = Math.max(2, camCity.dist * 0.02); ui.hover = groundHit(rayAt(e));
+    const rc = c3.getBoundingClientRect(), x = e.clientX - rc.left, y = e.clientY - rc.top, Z = 46;                      // 四边 46 px 是“往那边走”的区域
+    const fx = e.pointerType !== 'mouse' ? 0 : x < Z ? -1 : x > rc.width - Z ? 1 : 0, fz = e.pointerType !== 'mouse' ? 0 : y < Z ? 1 : y > rc.height - Z ? -1 : 0;
+    if (!fx && !fz) setEdge(null); else if (!edge || edge.fx !== fx || edge.fz !== fz) setEdge({ fx, fz, t0: performance.now() });
+    if (edge || ui.tool !== 'select' || ui.rs) req();
+  },
   cancel() { dropDrag(); m3 = null; },
   pinch(k, dx, dy) { const c = cam(); c.dist = clamp(c.dist / k, 12, 24000); const q = c.dist * 0.0017, sy = Math.sin(c.yaw), cy = Math.cos(c.yaw); c.tx += -cy * dx * q - sy * dy * q; c.tz += sy * dx * q - cy * dy * q; req(); },
 });
@@ -1404,7 +1441,7 @@ addEventListener('keydown', e => {
   else if ((e.key === 'e' || e.key === 'E') && ui.tool === 'terrain' && ui.hover) { const h = elevAt(ui.hover[0], ui.hover[1]); if (ui.tmode === 'water') $('#ws-h').value = Math.ceil(h + 5); else $('#tb-elev').value = Math.round(h); }
   else if (e.key === 'r' || e.key === 'R') rotate(e.shiftKey ? -1 : 1);
   else if (e.key === 'Delete' || e.key === 'Backspace') removeSel();
-  else if (e.key === 'Escape') { ui.rs = ui.rc = null; ui.sel = null; req(); }
+  else if (e.key === 'Escape') { ui.rs = ui.rc = null; ui.sel = ui.cand = null; req(); }
 });
 addEventListener('keyup', e => { if (e.key === ' ') space = false; });
 $('#tools').addEventListener('click', e => { const b = e.target.closest('button'); if (b && !shop.open) setTool(b.dataset.tool); });
@@ -1415,7 +1452,7 @@ let clearArm = 0;
 $('#clearBtn').onclick = e => {
   if (shop.open) return;
   if (!clearArm) { e.target.textContent = '再点一次确认'; clearArm = setTimeout(() => { clearArm = 0; e.target.textContent = '清空'; }, 3000); return; }
-  clearTimeout(clearArm); clearArm = 0; e.target.textContent = '清空'; pushUndo(); S.roads = []; S.blds = []; ui.sel = null; ui.rs = ui.rc = null; changed();
+  clearTimeout(clearArm); clearArm = 0; e.target.textContent = '清空'; pushUndo(); S.roads = []; S.blds = []; ui.sel = ui.cand = null; ui.rs = ui.rc = null; changed();
 };
 $('#ledgerBtn').onclick = $('#meter').onclick = () => { $('#ledger').hidden = !$('#ledger').hidden; updateMeter(); };
 $('#ledgerClose').onclick = () => { $('#ledger').hidden = true; };
