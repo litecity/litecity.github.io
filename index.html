@@ -155,6 +155,7 @@ button,input,select,textarea{font:inherit;color:inherit}
     </div>
     <div class="opts">
       <label>画法 <select id="roadMode"><option value="line">直线</option><option value="curve">自由曲线</option></select></label>
+      <label>路面 <select id="roadLv"><option value="0">贴地</option><option value="1">桥</option><option value="2">隧道</option></select></label>
       <label>路型 <select id="roadW"><option value="8">街道 8 m</option><option value="14">大道 14 m</option></select></label>
       <label><input type="checkbox" id="snapRoad" checked> 建筑贴路</label>
       <button class="btn sm" id="rotBtn" title="旋转 15°（R）">旋转 ⟳</button>
@@ -212,7 +213,7 @@ button,input,select,textarea{font:inherit;color:inherit}
       <h3>抹平笔刷</h3>
       <div class="fields">
         <label class="wide">目标海拔 m<input type="number" id="tb-elev" value="0" step="1"></label>
-        <label>半径 m<input type="number" id="tb-rad" value="150" step="10" min="40"></label>
+        <label>半径 m<input type="number" id="tb-rad" value="150" step="10" min="20"></label>
         <label>力度<input type="number" id="tb-str" value="0.5" step="0.1" min="0.05" max="1"></label>
       </div>
       <div class="row"><button class="btn sm" id="tb-all">全图抹平到此海拔</button></div>
@@ -221,7 +222,7 @@ button,input,select,textarea{font:inherit;color:inherit}
         <label>种子<input type="number" id="tg-seed" value="7" step="1"></label>
         <label>最高海拔 m<input type="number" id="tg-max" value="600" step="50" min="1"></label>
         <label>山体尺度 m<input type="number" id="tg-scale" value="3000" step="250" min="100"></label>
-        <label>细节层数<input type="number" id="tg-oct" value="5" step="1" min="1" max="8"></label>
+        <label>细节层数<input type="number" id="tg-oct" value="6" step="1" min="1" max="9"></label>
         <label>粗糙度<input type="number" id="tg-gain" value="0.5" step="0.05" min="0.2" max="0.8"></label>
         <label>山脊锐度<input type="number" id="tg-ridge" value="0.7" step="0.1" min="0" max="1"></label>
         <label>走向 °<input type="number" id="tg-angle" value="25" step="5"></label>
@@ -244,6 +245,7 @@ button,input,select,textarea{font:inherit;color:inherit}
         <span class="wide"></span>
         <label class="chk"><input type="checkbox" id="tw-riv"> 河流（沿坡汇流）</label>
         <label class="wide">汇水阈值（格）<input type="number" id="tw-thr" value="300" step="50" min="5"></label>
+        <label class="chk"><input type="checkbox" id="tw-anim" checked> 波光动画</label>
       </div>
       <h3>沟渠（像修路一样画）</h3>
       <div class="fields">
@@ -253,6 +255,13 @@ button,input,select,textarea{font:inherit;color:inherit}
         <label class="chk"><input type="checkbox" id="cn-water" checked> 渠里放水</label>
       </div>
       <div class="row"><button class="btn sm" id="cn-mode" aria-pressed="false">在地图上画沟渠</button><button class="btn sm warn" id="cn-clear">排干全部渠水</button></div>
+      <h3>树刷子</h3>
+      <div class="fields">
+        <label>半径 m<input type="number" id="tr-rad" value="200" step="10" min="20"></label>
+        <label>密度<input type="number" id="tr-den" value="0.7" step="0.1" min="0.05" max="1"></label>
+        <label class="chk"><input type="checkbox" id="tr-erase"> 擦除</label>
+      </div>
+      <div class="row"><button class="btn sm" id="tr-mode" aria-pressed="false">在地图上刷树</button><button class="btn sm warn" id="tr-clear">清除全部树</button></div>
       <h3>人工水点</h3>
       <div class="fields">
         <label class="wide">水面海拔 m<input type="number" id="ws-h" value="20" step="1"></label>
@@ -301,8 +310,8 @@ button,input,select,textarea{font:inherit;color:inherit}
     <tr><td>资产</td><td>每件资产是一份矢量配方：若干体块的位置、尺寸、颜色。同款建筑共用一份。</td><td class="n" id="lg-assets"></td></tr>
     <tr><td>贴图</td><td>没有。窗格、地面网格由着色器按坐标现算。</td><td class="n">0 张</td></tr>
     <tr><td>网格</td><td>全城合并成一个顶点缓冲，每顶点 20 字节（位置 12 + 法线 4 + 颜色 4）。</td><td class="n" id="lg-verts"></td></tr>
-    <tr><td>地形</td><td>18×18 km，一张 513×513 的高度格（每格约 35 m）。网格分成 8×8 块，共用一份索引，笔刷只重建碰到的块；平地时不分配。建筑和道路只在重建网格时查一次高度。</td><td class="n" id="lg-terr"></td></tr>
-    <tr><td>水</td><td>不逐帧模拟。海平面是一个半透明平面。湖用“优先级洪泛”把封闭洼地填到溢出口高度，所以湖面是平的；人工水点从该点漫水，淹没连通且低于水面的格子；沟渠沿画出的线下挖，渠水的水面跟着渠底坡度走；河流是汇水量超过阈值的格子。三者都只在地形改动时解一次，湿度写进地形顶点，岸线、波纹、反光都由着色器现算，不加任何三角形。天空和云、草地纹理同样是算出来的，没有贴图。</td><td class="n" id="lg-water"></td></tr>
+    <tr><td>地形</td><td>18×18 km，一张 1025×1025 的高度格（每格约 17.6 m）。网格分成 16×16 块，共用一份索引，笔刷只重建碰到的块；画的时候看不见的块跳过，远处的块降一到两档精度。树只存一张密度图，镜头附近才生成模型。平地时不分配。建筑和道路只在重建网格时查一次高度。</td><td class="n" id="lg-terr"></td></tr>
+    <tr><td>水</td><td>水面的波光每秒约 11 帧，只在有水时运行，其余不逐帧模拟。海平面是一个半透明平面。湖用“优先级洪泛”把封闭洼地填到溢出口高度，所以湖面是平的；人工水点从该点漫水，淹没连通且低于水面的格子；沟渠沿画出的线下挖，渠水的水面跟着渠底坡度走；河流是汇水量超过阈值的格子。三者都只在地形改动时解一次，湿度写进地形顶点，岸线、波纹、反光都由着色器现算，不加任何三角形。天空和云、草地纹理同样是算出来的，没有贴图。</td><td class="n" id="lg-water"></td></tr>
     <tr><td>绘制</td><td>地形一次、城市一次、预览与水面一次。</td><td class="n">≤3 次/帧</td></tr>
     <tr><td>渲染</td><td>按需重绘：画面不变就不出帧，不跑常驻循环。</td><td class="n" id="lg-frames"></td></tr>
     <tr><td>两个视图</td><td>平面图和实景读同一份数据，不各存一份；车间预览也复用这两块画布。</td><td class="n">1 份</td></tr>
@@ -366,10 +375,11 @@ function fp(a) {
 
 /* ───────── 城市状态（两个视图共用的唯一一份） ───────── */
 const S = { assets: {}, roads: [], blds: [], env: { water: null, lakes: false, rivers: false, thr: 300, src: [], canals: [] } };
-const GN = 512, VN = GN + 1, HALF = 9000, CELL = HALF * 2 / GN;   // 地形：18×18 km，513×513 高度格，每格约 35 m
-const CH = 64, CN = GN / CH, CV = (CH + 1) * (CH + 1), RV = GN / 2 + 1;   // 8×8 个分块，每块 65×65 顶点；平面图底图 257×257
-let TH = null, RH = null, terrDirty = false, terrCv = null, hyd = null;
-const terr = { mesh: null, wet: null, img: null, dirty: new Uint8Array(CN * CN), full: false, lo: 0, hi: 0 };
+const GN = 1024, VN = GN + 1, HALF = 9000, CELL = HALF * 2 / GN;  // 地形：18×18 km，1025×1025 高度格，每格约 17.6 m
+const CH = 64, CN = GN / CH, CV = (CH + 1) * (CH + 1), RV = GN / 2 + 1;   // 16×16 个分块，每块 65×65 顶点；平面图底图 513×513
+const SKN = 4 * GN * 6 + 6, LODN = [CH * CH * 6, CH * CH * 6 / 4, CH * CH * 6 / 16];
+let TH = null, RH = null, TR = null, terrDirty = false, terrCv = null, hyd = null, treesDirty = true;
+const terr = { mesh: null, wet: null, img: null, dirty: new Uint8Array(CN * CN), cb: new Float32Array(CN * CN * 2), skirt: null, skirtN: 0, full: false, lo: 0, hi: 0 };
 const ui = { tool: 'select', asset: 'house', rot: 0, snap: true, sel: null, hover: null, rs: null, rc: null, tmode: 'brush', cand: null, drag: null, tol: 4 };
 const shop = { open: false, draft: null, sel: -1, editId: null };
 const KEY = 'vector-city-1';
@@ -378,7 +388,8 @@ function restore(d) {
   S.assets = {}; for (const a of BUILTIN) S.assets[a.id] = { ...a, builtin: true };
   for (const a of d.assets || []) { const parts = sanitizeParts(a.parts); if (a.id && parts.length) S.assets[a.id] = { id: String(a.id), name: String(a.name || '资产').slice(0, 16), parts }; }
   const pt = p => Array.isArray(p) && isFinite(p[0]) && isFinite(p[1]);
-  S.roads = (d.roads || []).filter(r => r && pt(r.a) && pt(r.b) && pt(r.c)).map(r => ({ a: [+r.a[0], +r.a[1]], c: [+r.c[0], +r.c[1]], b: [+r.b[0], +r.b[1]], w: r.w >= 12 ? 14 : 8 }));
+  S.roads = (d.roads || []).filter(r => r && pt(r.a) && pt(r.b) && pt(r.c)).map(r => ({ a: [+r.a[0], +r.a[1]], c: [+r.c[0], +r.c[1]], b: [+r.b[0], +r.b[1]], w: r.w >= 12 ? 14 : 8, m: r.m === 1 || r.m === 2 ? r.m : 0,
+    h: Array.isArray(r.h) && r.h.length >= 2 && r.h.length <= 64 && r.h.every(Number.isFinite) ? r.h.map(Number) : undefined }));
   S.blds = (d.blds || []).filter(b => b && S.assets[b.a] && isFinite(b.x) && isFinite(b.z)).map(b => ({ a: b.a, x: +b.x, z: +b.z, r: +b.r || 0 }));
   if (!S.assets[ui.asset]) ui.asset = 'house';
   const e = d.env || {}; S.env = { water: Number.isFinite(e.water) ? e.water : null, lakes: e.lakes != null ? !!e.lakes : !!e.rivers, rivers: !!e.rivers, thr: clamp(+e.thr || 300, 5, 50000),
@@ -398,15 +409,16 @@ function roadPts(r) {
   let out = ptsCache.get(r); if (out) return out;
   const mx = (r.a[0] + r.b[0]) / 2, mz = (r.a[1] + r.b[1]) / 2;
   const chord = Math.hypot(r.b[0] - r.a[0], r.b[1] - r.a[1]), bend = Math.hypot(r.c[0] - mx, r.c[1] - mz);
-  const n = TH ? clamp(Math.ceil((chord + bend) / 10), bend < 0.5 ? 1 : 6, 64)   // 有地形时加密，好贴着地面起伏
+  let n = TH ? clamp(Math.ceil((chord + bend) / 10), bend < 0.5 ? 1 : 6, 64)   // 有地形时加密，好贴着地面起伏
     : bend < 0.5 ? 1 : clamp(Math.ceil((chord + bend) / 7), 6, 40);            // 平地上直路只用 1 段
+  if (r.h && n < r.h.length - 1) n = r.h.length - 1;
   out = [];
   for (let i = 0; i <= n; i++) {
     const t = i / n, u = 1 - t;
     const x = u * u * r.a[0] + 2 * u * t * r.c[0] + t * t * r.b[0], z = u * u * r.a[1] + 2 * u * t * r.c[1] + t * t * r.b[1];
     let tx = 2 * u * (r.c[0] - r.a[0]) + 2 * t * (r.b[0] - r.c[0]), tz = 2 * u * (r.c[1] - r.a[1]) + 2 * t * (r.b[1] - r.c[1]);
     let l = Math.hypot(tx, tz); if (l < 1e-6) { tx = r.b[0] - r.a[0]; tz = r.b[1] - r.a[1]; l = Math.hypot(tx, tz) || 1; }
-    out.push({ x, z, tx: tx / l, tz: tz / l });
+    out.push({ x, z, tx: tx / l, tz: tz / l, t });
   }
   let acc = 0; out[0].s = 0;
   for (let i = 1; i < out.length; i++) { acc += Math.hypot(out[i].x - out[i - 1].x, out[i].z - out[i - 1].z); out[i].s = acc; }
@@ -416,7 +428,7 @@ function roadPts(r) {
 function atDist(pts, d) {
   for (let i = 1; i < pts.length; i++) if (d <= pts[i].s || i === pts.length - 1) {
     const a = pts[i - 1], b = pts[i], l = (b.s - a.s) || 1, t = clamp((d - a.s) / l, 0, 1);
-    return { x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t, tx: (b.x - a.x) / l, tz: (b.z - a.z) / l };
+    return { x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t, tx: (b.x - a.x) / l, tz: (b.z - a.z) / l, t: a.t + (b.t - a.t) * t };
   }
 }
 function nearRoad(r, x, z) {
@@ -440,23 +452,53 @@ function snapPt(w, skip) {                                                    //
 // ── 路口：相交处把路切开，三条以上路端汇合的点就是路口
 const dist2 = (p, q) => Math.hypot(p[0] - q[0], p[1] - q[1]);
 const farEnds = (r, X, m = 3) => dist2(X, r.a) > m && dist2(X, r.b) > m;
+const hAt = (h, t) => { const f = clamp(t, 0, 1) * (h.length - 1), i = Math.min(f | 0, h.length - 2); return h[i] + (h[i + 1] - h[i]) * (f - i); };
+const roadYAt = (r, t, x, z) => r.h ? hAt(r.h, t) : H(x, z);                    // 路面高度：有纵断面用纵断面，老路贴着地形
 function splitRoad(r, t, X) {
-  const l = { a: r.a.slice(), c: [r.a[0] + (r.c[0] - r.a[0]) * t, r.a[1] + (r.c[1] - r.a[1]) * t], b: X.slice(), w: r.w };
-  const q = { a: X.slice(), c: [r.c[0] + (r.b[0] - r.c[0]) * t, r.c[1] + (r.b[1] - r.c[1]) * t], b: r.b.slice(), w: r.w };
+  const sub = (t0, t1) => { if (!r.h) return undefined; const K = Math.max(1, Math.round((r.h.length - 1) * (t1 - t0))); return Array.from({ length: K + 1 }, (_, i) => Math.round(hAt(r.h, t0 + (t1 - t0) * i / K) * 10) / 10); };
+  const l = { a: r.a.slice(), c: [r.a[0] + (r.c[0] - r.a[0]) * t, r.a[1] + (r.c[1] - r.a[1]) * t], b: X.slice(), w: r.w, m: r.m | 0, h: sub(0, t) };
+  const q = { a: X.slice(), c: [r.c[0] + (r.b[0] - r.c[0]) * t, r.c[1] + (r.b[1] - r.c[1]) * t], b: r.b.slice(), w: r.w, m: r.m | 0, h: sub(t, 1) };
   S.roads.splice(S.roads.indexOf(r), 1, l, q); return [l, q];
+}
+// 纵断面：贴地的路取沿线地形并抹顺（两端钉住）；桥和隧道在两端之间走直线，桥再略微起拱
+function setProfile(r, ya, yb) {
+  const len = dist2(r.a, r.b) + dist2(r.c, [(r.a[0] + r.b[0]) / 2, (r.a[1] + r.b[1]) / 2]), K = clamp(Math.ceil(len / 12), 2, 48), h = new Array(K + 1);
+  for (let i = 0; i <= K; i++) {
+    const t = i / K, u = 1 - t;
+    if (r.m) h[i] = ya + (yb - ya) * t + (r.m === 1 ? Math.min(5, len * 0.025) * Math.sin(Math.PI * t) : 0);
+    else h[i] = elevAt(u * u * r.a[0] + 2 * u * t * r.c[0] + t * t * r.b[0], u * u * r.a[1] + 2 * u * t * r.c[1] + t * t * r.b[1]);
+  }
+  if (!r.m) { h[0] = ya; h[K] = yb; for (let q = 0; q < 8; q++) for (let i = 1; i < K; i++) h[i] = (h[i - 1] + 2 * h[i] + h[i + 1]) / 4; }
+  r.h = h.map(v => Math.round(v * 10) / 10); ptsCache.delete(r);
+}
+function endY(p, skip) {                                                         // 新路端点的高度：接在别的路上就取那条路的高度，否则取地面
+  for (const o of S.roads) { if (skip && skip.has(o)) continue; const n = nearRoad(o, p[0], p[1]); if (n && n.d < 0.7) return roadYAt(o, n.t, n.x, n.z); }
+  return elevAt(p[0], p[1]);
+}
+// 修路自动平整地形：路面范围内的格点落到路面高度，两侧一段距离内放坡接回原地面
+function gradeRoad(r) {
+  if (!TH || r.m || !r.h) return;
+  const hw = r.w / 2, core = hw + 3.5, out = core + Math.max(2.2 * CELL, 16), rect = canalField(r, out);
+  for (let j = rect[2]; j <= rect[3]; j++) for (let i = rect[0]; i <= rect[1]; i++) {
+    const o = j * VN + i, d = cTmp.d[o]; if (d >= out) continue; const y = hAt(r.h, cTmp.t[o]);
+    if (d <= core) { TH[o] = y; if (TR) TR[o] = 0; } else TH[o] = y + (TH[o] - y) * sst(core, out, d);
+  }
+  cTmp = null; terr.copy = true; terrChanged(rect); if (S.env.lakes || S.env.rivers || S.env.src.length || S.env.canals.length) terrChanged(); saveTerr();
 }
 function pullEnd(r, X) { const e = dist2(X, r.a) < dist2(X, r.b) ? 'a' : 'b'; if (r[e][0] !== X[0] || r[e][1] !== X[1]) { r[e] = X.slice(); ptsCache.delete(r); } }
 function crossAt(r, o) {
   const pr = roadPts(r), po = roadPts(o), A = pr.bb, B = po.bb;
   if (A[0] > B[2] + 1 || B[0] > A[2] + 1 || A[1] > B[3] + 1 || B[1] > A[3] + 1) return null;
-  for (const e of [r.a, r.b]) { const n = nearRoad(o, e[0], e[1]); if (n.d < 0.6 && farEnds(o, e)) return { tr: null, to: n.t, X: e.slice() }; }     // r 的端点顶在 o 身上
-  for (const e of [o.a, o.b]) { const n = nearRoad(r, e[0], e[1]); if (n.d < 0.6 && farEnds(r, e)) return { tr: n.t, to: null, X: e.slice() }; }
+  const lvl = (p, q, tp, tq, x, z) => Math.abs(roadYAt(p, tp, x, z) - roadYAt(q, tq, x, z)) < 2.5;                  // 高度差太大就是立体交叉，不算路口
+  for (const [e, te] of [[r.a, 0], [r.b, 1]]) { const n = nearRoad(o, e[0], e[1]); if (n.d < 0.6 && farEnds(o, e) && lvl(r, o, te, n.t, n.x, n.z)) return { tr: null, to: n.t, X: e.slice() }; }     // r 的端点顶在 o 身上
+  for (const [e, te] of [[o.a, 0], [o.b, 1]]) { const n = nearRoad(r, e[0], e[1]); if (n.d < 0.6 && farEnds(r, e) && lvl(o, r, te, n.t, n.x, n.z)) return { tr: n.t, to: null, X: e.slice() }; }
   for (let i = 0; i < pr.length - 1; i++) for (let j = 0; j < po.length - 1; j++) {
     const a = pr[i], b = pr[i + 1], c = po[j], d = po[j + 1], rx = b.x - a.x, rz = b.z - a.z, sx = d.x - c.x, sz = d.z - c.z, den = rx * sz - rz * sx;
     if (Math.abs(den) < 1e-9) continue;
     const u = ((c.x - a.x) * sz - (c.z - a.z) * sx) / den, v = ((c.x - a.x) * rz - (c.z - a.z) * rx) / den;
     if (u < 0 || u > 1 || v < 0 || v > 1) continue;
-    const X = [a.x + rx * u, a.z + rz * u], okR = farEnds(r, X, o.w / 2 + 2.5), okO = farEnds(o, X, r.w / 2 + 2.5);   // 只伸过对方路面一点点的短头不算穿过，直接收到交点上
+    const X = [a.x + rx * u, a.z + rz * u]; if (!lvl(r, o, (i + u) / (pr.length - 1), (j + v) / (po.length - 1), X[0], X[1])) continue;
+    const okR = farEnds(r, X, o.w / 2 + 2.5), okO = farEnds(o, X, r.w / 2 + 2.5);   // 只伸过对方路面一点点的短头不算穿过，直接收到交点上
     if (!okR) pullEnd(r, X); if (!okO) pullEnd(o, X);
     if (okR || okO) return { tr: okR ? (i + u) / (pr.length - 1) : null, to: okO ? (j + v) / (po.length - 1) : null, X };
   }
@@ -474,15 +516,19 @@ function normalizeRoads(list) {
     }
   }
 }
-let J = { nodes: [], ends: new Map() };
+let J = { nodes: [], ends: new Map(), hall: new Map() };
 function computeJ() {
-  const map = new Map(), nodes = [], ends = new Map();
-  for (const r of S.roads) for (const e of ['a', 'b']) { const k = Math.round(r[e][0] * 2) + ',' + Math.round(r[e][1] * 2); let l = map.get(k); if (!l) map.set(k, l = []); l.push({ r, e }); }
-  for (const arms of map.values()) if (arms.length >= 3) {
-    const R = Math.max(...arms.map(a => a.r.w)) / 2 + 1, p = arms[0].r[arms[0].e]; nodes.push({ x: p[0], z: p[1], R, arms });
-    for (const a of arms) { let o = ends.get(a.r); if (!o) ends.set(a.r, o = { a: 0, b: 0 }); o[a.e] = R; }
+  const map = new Map(), nodes = [], ends = new Map(), hall = new Map();
+  for (const r of S.roads) for (const e of ['a', 'b']) { const k = Math.round(r[e][0] * 2) + ',' + Math.round(r[e][1] * 2); let l = map.get(k); if (!l) map.set(k, l = []); l.push({ r, e, y: roadYAt(r, e === 'a' ? 0 : 1, r[e][0], r[e][1]) }); }
+  const groups = [];                                                           // 同一平面位置上，高度相近的路端才算同一个节点（桥和桥下的路不相连）
+  for (const l of map.values()) { l.sort((p, q) => p.y - q.y); let g = [l[0]]; for (let i = 1; i < l.length; i++) { if (l[i].y - l[i - 1].y > 2.5) { groups.push(g); g = []; } g.push(l[i]); } groups.push(g); }
+  for (const arms of groups) if (arms.length >= 3) {
+    const R = Math.max(...arms.map(a => a.r.w)) / 2 + 1, a0 = arms[0], p = a0.r[a0.e], tun = arms.every(a => a.r.m === 2 && a.r.h), rho = R * 1.7 + 3;
+    nodes.push({ x: p[0], z: p[1], R, arms, y: a0.r.h ? a0.r.h[a0.e === 'a' ? 0 : a0.r.h.length - 1] : null, tun, rho });
+    for (const a of arms) { let o = ends.get(a.r); if (!o) ends.set(a.r, o = { a: 0, b: 0 }); o[a.e] = R;
+      if (tun) { let h = hall.get(a.r); if (!h) hall.set(a.r, h = { a: 0, b: 0 }); const wi = a.r.w / 2 + 0.8; h[a.e] = Math.sqrt(Math.max(0, rho * rho - wi * wi)); } }
   }
-  J = { nodes, ends };
+  J = { nodes, ends, hall };
 }
 function armPoint(a, R) { const pts = roadPts(a.r); if (pts.len < 2 * R + 10) return null; return atDist(pts, a.e === 'a' ? R + 2.4 : pts.len - R - 2.4); }
 function snapToRoad(b) {
@@ -514,7 +560,8 @@ const pathTool = () => ui.tool === 'road' || canalMode();
 const pathW = () => canalMode() ? numIn('cn-w', 80, 40, 600) : +$('#roadW').value;
 const pathPt = w => canalMode() ? [w[0], w[1]] : snapPt(w);
 function addRoad(a, b, c) {
-  pushUndo(); const r = { a, c: c ? c.slice() : [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], b, w: +$('#roadW').value };
+  pushUndo(); const r = { a, c: c ? c.slice() : [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], b, w: +$('#roadW').value, m: +$('#roadLv').value | 0 };
+  if (TH || r.m) { setProfile(r, endY(a), endY(b)); gradeRoad(r); }
   S.roads.push(r); normalizeRoads([r]); const i = S.roads.indexOf(r); ui.sel = i >= 0 ? { k: 'road', i } : null; changed();
 }
 function press(w, forced) {
@@ -524,6 +571,7 @@ function press(w, forced) {
     terrChanged(); save(); updateSrcRead(); return true;
   }
   if (ui.tool === 'terrain' && ui.tmode === 'brush') { pushUndoTerr(); ui.drag = { k: 'brush' }; brush(w); return true; }
+  if (ui.tool === 'terrain' && ui.tmode === 'tree') { ui.drag = { k: 'tbrush' }; paintTrees(w); return true; }
   if (ui.tool === 'select') {
     const h = forced || hit(w, ui.tol);
     if (!h) { ui.sel = ui.cand = null; req(); return false; }
@@ -573,11 +621,16 @@ function dragTo(w) {
     const b = S.blds[ui.sel.i]; if (!b) return;
     b.x = w[0] + d.dx; b.z = w[1] + d.dz; if (ui.snap) snapToRoad(b); dirtyGeom = true;
   } else if (d && d.k === 'brush') brush(w);
+  else if (d && d.k === 'tbrush') paintTrees(w);
   req();
 }
 function release(w, isDrag) {
-  if (ui.drag) { const k = ui.drag.k; ui.drag = null; if (k === 'brush') { saveTerr(); terrChanged(); }
-    else { if (k === 'h' && ui.sel) { const r = S.roads[ui.sel.i]; if (r) { normalizeRoads([r]); const i = S.roads.indexOf(r); ui.sel = i >= 0 ? { k: 'road', i } : null; } } changed(); }
+  if (ui.drag) { const dg = ui.drag, k = dg.k; ui.drag = null; if (k === 'brush') { saveTerr(); terrChanged(); } else if (k === 'tbrush') { saveTerr(); req(); }
+    else { if (k === 'h' && ui.sel) { const r = S.roads[ui.sel.i]; if (r) {
+        const set = new Set([r, ...dg.group.map(g => g.r)]);                       // 拖过的路：端点落到新位置的地面高度，重算纵断面并重新平整
+        if (TH && dg.h !== 'm' && dg.group.length) { const p = r[dg.h], y = Math.round(elevAt(p[0], p[1]) * 10) / 10; for (const g of dg.group) if (g.r.h) g.r.h[g.e === 'a' ? 0 : g.r.h.length - 1] = y; }
+        for (const q of set) if (q.h) { setProfile(q, q.h[0], q.h[q.h.length - 1]); gradeRoad(q); }
+        normalizeRoads([r]); const i = S.roads.indexOf(r); ui.sel = i >= 0 ? { k: 'road', i } : null; } } changed(); }
     return; }
   if (pathTool() && ui.rs && isDrag && w && $('#roadMode').value !== 'curve') { const p = pathPt(w); if (dist2(p, ui.rs) > 4) { if (canalMode()) carveCanal(ui.rs, p); else addRoad(ui.rs, p); ui.rs = ui.rc = null; } }
   req();
@@ -591,12 +644,12 @@ function setTool(t) {
 }
 function setHint() {
   const H = { select: '点一下预选（虚线框），再点一下才选中。选中的路可拖菱形手柄调弯、拖端点改走向；选中的建筑可拖动，R 旋转，Delete 删除。双击空地让实景飞过去。',
-    road: '直线：按住拖出或点两下。自由曲线：点起点，拉出虚线定方向后点一下，再转到终点点一下确定。相交处自动生成路口。', build: '在任意一侧点击放置。靠近道路会自动贴边并面向道路，R 旋转 15°。', erase: '点击道路或建筑即可拆除。',
+    road: '直线：按住拖出或点两下。自由曲线：点三下。贴地的路会自动平整地形；“路面”选桥或隧道时，路在两端之间架空或穿山，同一高度相交才生成路口。选隧道时地形半透明。', build: '在任意一侧点击放置。靠近道路会自动贴边并面向道路，R 旋转 15°。', erase: '点击道路或建筑即可拆除。',
     terrain: '按住拖动，把地面抹到目标海拔（挖湖就填负数）。按 E 吸取光标处海拔。' };
-  $('#hint2').textContent = shop.open ? '车间平面：点选并拖动部件。下方是正面（朝路的一侧）。' : ui.tool === 'terrain' && ui.tmode === 'canal' ? '像修路一样画沟渠：直线拖出或点两下，自由曲线点三下（顶栏“画法”）。渠底从起点向终点一路下降，上游陡、下游缓。' : ui.tool === 'terrain' && ui.tmode === 'water' ? '点一下放水点：与它连通、低于水面海拔的地方会淹成一片平的水面。再点水点可删除。按 E 取光标处海拔 +5 m。' : H[ui.tool];
+  $('#hint2').textContent = shop.open ? '车间平面：点选并拖动部件。下方是正面（朝路的一侧）。' : ui.tool === 'terrain' && ui.tmode === 'tree' ? '按住拖动刷树；勾“擦除”则刷掉。远处显示为林地的深色，镜头拉近才出现一棵棵树。' : ui.tool === 'terrain' && ui.tmode === 'canal' ? '像修路一样画沟渠：直线拖出或点两下，自由曲线点三下（顶栏“画法”）。渠底从起点向终点一路下降，上游陡、下游缓。' : ui.tool === 'terrain' && ui.tmode === 'water' ? '点一下放水点：与它连通、低于水面海拔的地方会淹成一片平的水面。再点水点可删除。按 E 取光标处海拔 +5 m。' : H[ui.tool];
   $('#tag2').textContent = shop.open ? '车间 · 俯视' : '平面图 · 俯视';
   $('#tag3').textContent = shop.open ? '车间 · 3D 预览' : '实景 · 3D';
-  $('#hint3').textContent = ui.tool === 'terrain' && !shop.open ? (ui.tmode === 'brush' ? '左键拖动抹地形 · 右键拖动旋转 · Shift 拖动平移' : '点击落点 · 拖动旋转 · 滚轮缩放 · Shift 或右键拖动平移') : '拖动旋转 · 滚轮缩放 · 鼠标移到四边可前进后退左右走 · 双击前往';
+  $('#hint3').textContent = ui.tool === 'terrain' && !shop.open ? (ui.tmode === 'brush' || ui.tmode === 'tree' ? '左键拖动刷 · 右键拖动旋转 · Shift 拖动平移' : '点击落点 · 拖动旋转 · 滚轮缩放 · Shift 或右键拖动平移') : '拖动旋转 · 滚轮缩放 · 鼠标移到四边可前进后退左右走 · 双击前往';
 }
 function rotate(dir) {
   const st = 15 * D2R * dir;
@@ -633,7 +686,7 @@ const ID_TF = (x, y, z) => [x, y, z];
 function emitPart(m, p, tf, colOverride) {
   const cr = Math.cos((p.r || 0) * D2R), sr = Math.sin((p.r || 0) * D2R);
   const L = (lx, ly, lz) => tf(p.x + lx * cr - lz * sr, p.y + ly, p.z + lx * sr + lz * cr);
-  const col = colOverride || hex2rgb(p.c), mat = p.win ? 128 : 255, hw = p.w / 2, hd = p.d / 2, h = p.h;
+  const col = colOverride || hex2rgb(p.c), mat = p.mat || (p.win ? 128 : 255), hw = p.w / 2, hd = p.d / 2, h = p.h;
   const ctr = L(0, p.s === 'box' || p.s === 'cyl' ? h / 2 : h / 4, 0);
   const T = (a, b, c) => tri(m, a, b, c, col, mat, ctr), Q = (a, b, c, d) => { T(a, b, c); T(a, c, d); };
   if (p.s === 'cyl' || p.s === 'cone') {
@@ -658,45 +711,103 @@ function emitAsset(m, asset, b, col) {
   const c = Math.cos(b.r), s = Math.sin(b.r), y0 = H(b.x, b.z), tf = (x, y, z) => [b.x + x * c - z * s, y0 + y, b.z + x * s + z * c];
   for (const p of asset.parts) emitPart(m, p, tf, col);
 }
-function ribbon(m, pts, hw, y, col, mat) {
+function ribbon(m, pts, hw, y, col, mat, yf) {
   for (let i = 0; i < pts.length - 1; i++) {
-    const a = pts[i], b = pts[i + 1], ya = y + H(a.x, a.z), yb = y + H(b.x, b.z);
+    const a = pts[i], b = pts[i + 1], ya = y + (yf ? yf(a) : H(a.x, a.z)), yb = y + (yf ? yf(b) : H(b.x, b.z));
     const al = [a.x - a.tz * hw, ya, a.z + a.tx * hw], ar = [a.x + a.tz * hw, ya, a.z - a.tx * hw], bl = [b.x - b.tz * hw, yb, b.z + b.tx * hw], br = [b.x + b.tz * hw, yb, b.z - b.tx * hw];
     tri(m, al, ar, br, col, mat); tri(m, al, br, bl, col, mat);
   }
 }
-function disc(m, x, z, rad, y, col, mat) {
-  y += H(x, z);
+function disc(m, x, z, rad, y, col, mat, base) {
+  y += base != null ? base : H(x, z);
   for (let i = 0; i < 12; i++) { const a0 = i / 12 * TAU, a1 = (i + 1) / 12 * TAU; tri(m, [x, y, z], [x + Math.cos(a0) * rad, y, z + Math.sin(a0) * rad], [x + Math.cos(a1) * rad, y, z + Math.sin(a1) * rad], col, mat); }
 }
-function dashes(m, pts, off, y, col, d0, d1) {
+function dashes(m, pts, off, y, col, d0, d1, yf) {
   for (let d = d0; d + 4 < pts.len - d1; d += 9) {
     const a = atDist(pts, d), b = atDist(pts, d + 4); let tx = b.x - a.x, tz = b.z - a.z; const l = Math.hypot(tx, tz) || 1; tx /= l; tz /= l;
-    const ox = -tz * off, oz = tx * off, hw = 0.2, ya = y + H(a.x, a.z), yb = y + H(b.x, b.z);
+    const ox = -tz * off, oz = tx * off, hw = 0.2, ya = y + (yf ? yf(a) : H(a.x, a.z)), yb = y + (yf ? yf(b) : H(b.x, b.z));
     const p = [[a.x + ox - tz * hw, ya, a.z + oz + tx * hw], [a.x + ox + tz * hw, ya, a.z + oz - tx * hw], [b.x + ox + tz * hw, yb, b.z + oz - tx * hw], [b.x + ox - tz * hw, yb, b.z + oz + tx * hw]];
     tri(m, p[0], p[1], p[2], col, 255); tri(m, p[0], p[2], p[3], col, 255);
   }
 }
+const CONC = [152, 156, 160], TH_T = 6.4;                                         // 混凝土色、隧道净高
+let lampN = 0, tunSeg = { a: new Float32Array(192), b: new Float32Array(192), n: 0 };
 function emitRoad(m, r) {
   const pts = roadPts(r), hw = r.w / 2, walk = hex2rgb(T.walk), road = hex2rgb(T.road), mark = hex2rgb(T.mark), white = [232, 236, 240];
-  const L = lift();
-  ribbon(m, pts, hw + 1.5, L + 0.06, walk, 255); ribbon(m, pts, hw, L + 0.14, road, 255);
-  for (const e of [r.a, r.b]) { disc(m, e[0], e[1], hw + 1.5, L + 0.06, walk, 255); disc(m, e[0], e[1], hw, L + 0.14, road, 255); }
+  const yf = r.h ? p => hAt(r.h, p.t) : null, L = r.h ? 0.35 : lift(), ya = r.h ? r.h[0] : null, yb = r.h ? r.h[r.h.length - 1] : null;
+  if (r.m === 2) return emitTunnel(m, r, pts, yf);
+  ribbon(m, pts, hw + 1.5, L + 0.06, walk, 255, yf); ribbon(m, pts, hw, L + 0.14, road, 255, yf);
+  for (const [e, y] of [[r.a, ya], [r.b, yb]]) { disc(m, e[0], e[1], hw + 1.5, L + 0.06, walk, 255, y); disc(m, e[0], e[1], hw, L + 0.14, road, 255, y); }
   const je = J.ends.get(r), d0 = je && je.a ? je.a + 5 : 3, d1 = je && je.b ? je.b + 5 : 0;           // 标线在路口前停住
-  if (r.w >= 12) { ribbon(m, pts, 0.25, L + 0.22, mark, 255); dashes(m, pts, r.w / 4, L + 0.22, white, d0, d1); dashes(m, pts, -r.w / 4, L + 0.22, white, d0, d1); }
-  else dashes(m, pts, 0, L + 0.22, mark, d0, d1);
+  if (r.w >= 12) { ribbon(m, pts, 0.25, L + 0.22, mark, 255, yf); dashes(m, pts, r.w / 4, L + 0.22, white, d0, d1, yf); dashes(m, pts, -r.w / 4, L + 0.22, white, d0, d1, yf); }
+  else dashes(m, pts, 0, L + 0.22, mark, d0, d1, yf);
+  const Y = p => yf ? yf(p) : H(p.x, p.z);
+  if (r.m === 1) {                                                             // 桥：桥面板、两侧挡板和栏杆、够高的地方立桥墩
+    const w = hw + 1.5, side = (p, sg, y) => [p.x - p.tz * w * sg, y, p.z + p.tx * w * sg];
+    ribbon(m, pts, w, L - 1.3, CONC, 255, yf);
+    for (let i = 0; i < pts.length - 1; i++) { const a = pts[i], b = pts[i + 1], A = Y(a) + L, B = Y(b) + L, ctr = [(a.x + b.x) / 2, (A + B) / 2, (a.z + b.z) / 2];
+      for (const sg of [1, -1]) { const q = [side(a, sg, A - 1.3), side(b, sg, B - 1.3), side(b, sg, B + 1.1), side(a, sg, A + 1.1)]; tri(m, q[0], q[1], q[2], CONC, 255, ctr); tri(m, q[0], q[2], q[3], CONC, 255, ctr); } }
+    for (let d = 22; d < pts.len - 18; d += 44) { const p = atDist(pts, d), g = H(p.x, p.z), top = Y(p) + L - 1.3; if (top - g > 2.5) emitPart(m, { s: 'box', x: p.x, z: p.z, y: g - 2, w: Math.min(hw * 1.4, 7), d: 2.2, h: top - g + 2, r: Math.atan2(p.tx, -p.tz) / D2R }, ID_TF, CONC); }
+  }
+  // 路灯：每 34 m 一盏，左右交替；灯头是不受光照影响的发光面
+  const pole = [72, 78, 86], glow = T.night ? hex2rgb(T.lit) : [236, 240, 242]; let sg = 1;
+  for (let d = (je && je.a ? je.a + 9 : 12); d < pts.len - (je && je.b ? je.b + 9 : 12) && lampN < 1500; d += 34, sg = -sg, lampN++) {
+    const p = atDist(pts, d), y = Y(p) + L, nx = -p.tz * sg, nz = p.tx * sg, at = k => [p.x + nx * k, p.z + nz * k], rot = Math.atan2(p.tx, -p.tz) / D2R, P = at(hw + 0.9), A = at(hw), G = at(hw - 0.7);
+    emitPart(m, { s: 'box', x: P[0], z: P[1], y, w: 0.24, d: 0.24, h: 6.6 }, ID_TF, pole);
+    emitPart(m, { s: 'box', x: A[0], z: A[1], y: y + 6.5, w: 2, d: 0.16, h: 0.14, r: rot }, ID_TF, pole);
+    emitPart(m, { s: 'box', x: G[0], z: G[1], y: y + 6.34, w: 1, d: 0.4, h: 0.16, r: rot, mat: 240 }, ID_TF, glow);
+  }
+}
+// 隧道：路面、两侧内壁、拱顶和一条灯带。面是双面的，从洞口能看进去；路口处墙留出开口，由圆形的路口大厅接上
+function emitTunnel(m, r, pts, yf) {
+  const hw = r.w / 2, wi = hw + 0.8, road = hex2rgb(T.road), mark = hex2rgb(T.mark), wallc = T.night ? [70, 74, 80] : [176, 178, 176], roofc = T.night ? [52, 55, 60] : [128, 131, 134], lamp = hex2rgb(T.lit);
+  const hall = J.hall.get(r) || { a: 0, b: 0 }, je = J.ends.get(r);
+  ribbon(m, pts, wi, 0.1, road, 255, yf); ribbon(m, pts, wi, TH_T, roofc, 255, yf); ribbon(m, pts, 0.4, TH_T - 0.06, lamp, 240, yf);
+  dashes(m, pts, 0, 0.18, mark, je && je.a ? je.a + 5 : 3, je && je.b ? je.b + 5 : 0, yf);
+  const d0 = hall.a, d1 = pts.len - hall.b; if (d1 - d0 < 1) return;
+  const n = Math.max(1, Math.ceil((d1 - d0) / 9)), P = []; for (let i = 0; i <= n; i++) P.push(atDist(pts, d0 + (d1 - d0) * i / n));
+  for (let i = 0; i < n; i++) { const a = P[i], b = P[i + 1], A = yf(a), B = yf(b);
+    for (const sg of [1, -1]) { const S0 = (p, y) => [p.x - p.tz * wi * sg, y, p.z + p.tx * wi * sg], q = [S0(a, A), S0(b, B), S0(b, B + TH_T), S0(a, A + TH_T)], out = [a.x - a.tz * 60 * sg, A, a.z + a.tx * 60 * sg];
+      tri(m, q[0], q[1], q[2], wallc, 255, out); tri(m, q[0], q[2], q[3], wallc, 255, out); } }
+  for (const [e, hl] of [['a', hall.a], ['b', hall.b]]) {                       // 洞门：两根门柱加一道门楣
+    if (hl) continue; const p = e === 'a' ? P[0] : P[n], y = yf(p), rot = Math.atan2(p.tx, -p.tz) / D2R, at = k => [p.x - p.tz * k, p.z + p.tx * k];
+    for (const sg of [1, -1]) { const c = at((wi + 0.7) * sg); emitPart(m, { s: 'box', x: c[0], z: c[1], y: y - 0.5, w: 1.4, d: 1.6, h: TH_T + 2, r: rot }, ID_TF, CONC); }
+    emitPart(m, { s: 'box', x: p.x, z: p.z, y: y + TH_T, w: wi * 2 + 2.8, d: 1.6, h: 1.5, r: rot }, ID_TF, CONC);
+  }
+}
+// 隧道洞口附近，地形会伸进洞里：把这些路段交给着色器，在洞身范围内挖掉地形
+function tunnelHoles() {
+  const A = tunSeg.a, B = tunSeg.b; let n = 0;
+  for (const r of S.roads) {
+    if (r.m !== 2 || !r.h || !TH) continue; const pts = roadPts(r), wi = r.w / 2 + 0.8, cover = d => { const p = atDist(pts, d); return H(p.x, p.z) - hAt(r.h, p.t); };
+    const add = (d0, d1) => { if (n >= 48) return; const p = atDist(pts, d0), q = atDist(pts, d1); A.set([p.x, p.z, q.x, q.z], n * 4); B.set([hAt(r.h, p.t), hAt(r.h, q.t), wi, TH_T + 0.7], n * 4); n++; };
+    const step = 22, half = pts.len / 2;
+    for (const dir of [1, -1]) for (let d = 0; d < half; d += step) { const u = Math.min(d + step, half); if (d > 0 && cover(dir > 0 ? d : pts.len - d) > TH_T + 3) break; if (dir > 0) add(d, u); else add(pts.len - u, pts.len - d); }
+  }
+  tunSeg.n = n;
 }
 function emitJunctions(m) {
-  const road = hex2rgb(T.road), white = [232, 236, 240], L = lift();
+  const road = hex2rgb(T.road), white = [232, 236, 240];
   for (const n of J.nodes) {
-    disc(m, n.x, n.z, n.R + 0.5, L + 0.25, road, 255);
+    const L = n.y != null ? 0.35 : lift();
+    disc(m, n.x, n.z, n.R + 0.5, L + 0.25, road, 255, n.y);
     for (const a of n.arms) {                                                  // 每个进口一条斑马线
-      const q = armPoint(a, n.R); if (!q) continue; const hw = a.r.w / 2, y = L + 0.27 + H(q.x, q.z);
+      const q = armPoint(a, n.R); if (!q) continue; const hw = a.r.w / 2, y = L + 0.27 + roadYAt(a.r, q.t, q.x, q.z);
       for (let o = -hw + 0.7; o <= hw - 0.7; o += 1.2) {
         const cx = q.x - q.tz * o, cz = q.z + q.tx * o, P = (u, v) => [cx + q.tx * u - q.tz * v, y, cz + q.tz * u + q.tx * v];
         const p0 = P(-1.3, -0.3), p1 = P(1.3, -0.3), p2 = P(1.3, 0.3), p3 = P(-1.3, 0.3); tri(m, p0, p1, p2, white, 255); tri(m, p0, p2, p3, white, 255);
       }
     }
+    if (!n.tun) continue;                                                      // 隧道里的路口：一个圆形大厅，墙在每条路的方向上留门
+    const rho = n.rho, y = n.y, wallc = T.night ? [70, 74, 80] : [176, 178, 176], roofc = T.night ? [52, 55, 60] : [128, 131, 134], far = [n.x, y - 400, n.z];
+    disc(m, n.x, n.z, rho, 0.08, road, 255, y); disc(m, n.x, n.z, rho, TH_T, roofc, 255, y); disc(m, n.x, n.z, 2.2, TH_T - 0.06, hex2rgb(T.lit), 240, y);
+    const gaps = n.arms.map(a => { const pts = roadPts(a.r), p = a.e === 'a' ? pts[0] : pts[pts.length - 1], sg = a.e === 'a' ? 1 : -1; return { th: Math.atan2(p.tz * sg, p.tx * sg), al: Math.asin(Math.min(0.99, (a.r.w / 2 + 0.8) / rho)) }; }).sort((p, q) => p.th - q.th);
+    gaps.forEach((g, i) => {
+      const nx = gaps[(i + 1) % gaps.length]; let t0 = g.th + g.al, t1 = nx.th - nx.al; if (i === gaps.length - 1) t1 += TAU; if (t1 - t0 < 0.02) return;
+      const k = Math.max(1, Math.ceil((t1 - t0) / 0.22));
+      for (let q = 0; q < k; q++) { const u0 = t0 + (t1 - t0) * q / k, u1 = t0 + (t1 - t0) * (q + 1) / k, W = (u, h) => [n.x + Math.cos(u) * rho, y + h, n.z + Math.sin(u) * rho], c = [n.x + Math.cos(u0) * rho * 3, y, n.z + Math.sin(u0) * rho * 3];
+        tri(m, W(u0, 0), W(u1, 0), W(u1, TH_T), wallc, 255, c); tri(m, W(u0, 0), W(u1, TH_T), W(u0, TH_T), wallc, 255, c); }
+    });
   }
 }
 function dashLine(m, a, b, hw, step, y, col) {
@@ -706,7 +817,6 @@ function dashLine(m, a, b, hw, step, y, col) {
 
 /* ───────── 地形模块 ───────── */
 const sst = (a, b, x) => { x = clamp((x - a) / (b - a), 0, 1); return x * x * (3 - 2 * x); };
-const edgeFade = (i, j) => sst(0, 10, Math.min(i, j, GN - i, GN - j));       // 边缘过渡到 0，和外围平地接上
 const lift = () => TH && !shop.open ? 0.5 : 0;
 function numIn(id, def, lo, hi) { const v = parseFloat($('#' + id).value); return Number.isFinite(v) ? clamp(v, lo, hi) : def; }
 function gridAt(A, x, z) {
@@ -718,7 +828,7 @@ function H(x, z) { return !TH || shop.open ? 0 : gridAt(RH, x, z); }            
 function elevAt(x, z) { return TH ? gridAt(TH, x, z) : 0; }
 function ensureTH() {
   if (TH) return; TH = new Float32Array(VN * VN); RH = new Float32Array(VN * VN); ptsCache = new WeakMap();
-  if (gl) { gl.bindBuffer(gl.ARRAY_BUFFER, bufT); gl.bufferData(gl.ARRAY_BUFFER, CN * CN * CV * 20, gl.DYNAMIC_DRAW); }
+  if (gl) { gl.bindBuffer(gl.ARRAY_BUFFER, bufT); gl.bufferData(gl.ARRAY_BUFFER, (CN * CN * CV + SKN) * 20, gl.DYNAMIC_DRAW); }
 }
 function terrChanged(rect) {                                                   // rect = [i0,i1,j0,j1]：只重建碰到的分块
   terrDirty = true; dirtyGeom = true;
@@ -730,34 +840,45 @@ function terrChanged(rect) {                                                   /
 const quant = () => { const q = new Int16Array(TH.length); for (let i = 0; i < q.length; i++) q[i] = Math.round(clamp(TH[i], -3000, 3000) * 10); return q; };
 function setTH(q) {                                                            // q：0.1 m 精度的 Int16 快照，或 null = 平地
   if (q) { ensureTH(); for (let i = 0; i < q.length; i++) TH[i] = q[i] / 10; }
-  else { TH = RH = null; S.env.canals = []; terr.wet = terr.img = terr.mesh = terrCv = null; ptsCache = new WeakMap(); if (gl) { gl.bindBuffer(gl.ARRAY_BUFFER, bufT); gl.bufferData(gl.ARRAY_BUFFER, 4, gl.DYNAMIC_DRAW); } }
+  else { TH = RH = TR = null; terr.skirt = null; terr.skirtN = 0; treesDirty = true; S.env.canals = []; terr.wet = terr.img = terr.mesh = terrCv = null; ptsCache = new WeakMap(); if (gl) { gl.bindBuffer(gl.ARRAY_BUFFER, bufT); gl.bufferData(gl.ARRAY_BUFFER, 4, gl.DYNAMIC_DRAW); } }
   terrChanged(); saveTerr();
 }
 function pushUndoTerr() {
   undoStack.push({ terr: TH ? quant() : null, canals: JSON.stringify(S.env.canals) });
-  for (let i = undoStack.length - 1, c = 0; i >= 0; i--) if (typeof undoStack[i] !== 'string' && ++c > 3) undoStack.splice(i, 1);   // 地形快照每份约 0.5 MB，只留 3 步
+  for (let i = undoStack.length - 1, c = 0; i >= 0; i--) if (typeof undoStack[i] !== 'string' && ++c > 2) undoStack.splice(i, 1);   // 地形快照每份约 2 MB，只留 2 步
   if (undoStack.length > 40) undoStack.shift();
 }
-function saveTerr() {
-  try {
-    if (!TH) { localStorage.removeItem(KEY + '-t'); return; }
-    const q = quant(), b = new Uint8Array(q.buffer); let s = ''; for (let i = 0; i < b.length; i += 8192) s += String.fromCharCode.apply(null, b.subarray(i, i + 8192));
-    localStorage.setItem(KEY + '-t', btoa(s));
-  } catch (e) {}
+const cellBox = (w, r) => [Math.max(0, Math.floor((w[0] - r + HALF) / CELL)), Math.min(GN, Math.ceil((w[0] + r + HALF) / CELL)), Math.max(0, Math.floor((w[1] - r + HALF) / CELL)), Math.min(GN, Math.ceil((w[1] + r + HALF) / CELL))];
+// 地形和树存在 IndexedDB 里（二进制，容量比 localStorage 大得多），改动后稍等片刻再写
+let idbP = null, saveTimer = 0;
+function idbOpen() { return idbP || (idbP = new Promise(res => { try { const q = indexedDB.open('litecity', 1); q.onupgradeneeded = () => q.result.createObjectStore('kv'); q.onsuccess = () => res(q.result); q.onerror = () => res(null); } catch (e) { res(null); } })); }
+async function idbPut(k, v) { const db = await idbOpen(); if (!db) return; try { const st = db.transaction('kv', 'readwrite').objectStore('kv'); if (v == null) st.delete(k); else st.put(v, k); } catch (e) {} }
+async function idbGet(k) { const db = await idbOpen(); if (!db) return null; return new Promise(res => { try { const q = db.transaction('kv').objectStore('kv').get(k); q.onsuccess = () => res(q.result); q.onerror = () => res(null); } catch (e) { res(null); } }); }
+function flushTerr() { clearTimeout(saveTimer); saveTimer = 0; idbPut('terr', TH ? quant() : null); idbPut('trees', TH && TR ? TR : null); }
+function saveTerr() { clearTimeout(saveTimer); saveTimer = setTimeout(flushTerr, 700); }
+addEventListener('pagehide', () => { if (saveTimer) flushTerr(); });
+function upsample(q, vn) {                                                       // 旧版较粗的高度格放大到当前精度
+  const out = new Int16Array(VN * VN), k = (vn - 1) / GN;
+  for (let j = 0; j < VN; j++) for (let i = 0; i < VN; i++) { const fx = Math.min(i * k, vn - 1.001), fz = Math.min(j * k, vn - 1.001), a = fx | 0, b = fz | 0, u = fx - a, v = fz - b, o = b * vn + a;
+    out[j * VN + i] = (q[o] * (1 - u) + q[o + 1] * u) * (1 - v) + (q[o + vn] * (1 - u) + q[o + vn + 1] * u) * v; }
+  return out;
 }
-function loadTerr() {
+async function loadTerr() {
   try {
-    const s = localStorage.getItem(KEY + '-t'); if (!s) return; const bin = atob(s); if (bin.length !== VN * VN * 2) return;
-    const b = new Uint8Array(bin.length); for (let i = 0; i < b.length; i++) b[i] = bin.charCodeAt(i);
-    const q = new Int16Array(b.buffer); ensureTH(); for (let i = 0; i < q.length; i++) TH[i] = q[i] / 10; terr.full = true; terr.dirty.fill(1); terrDirty = true;
+    let q = await idbGet('terr');
+    if (!q) { const s = localStorage.getItem(KEY + '-t'); if (s) { const bin = atob(s), b = new Uint8Array(bin.length); for (let i = 0; i < b.length; i++) b[i] = bin.charCodeAt(i); q = new Int16Array(b.buffer); localStorage.removeItem(KEY + '-t'); } }
+    if (!q || !q.length) return;
+    if (q.length !== VN * VN) { const vn = Math.round(Math.sqrt(q.length)); if (vn * vn !== q.length || vn < 3) return; q = upsample(q, vn); }
+    ensureTH(); for (let i = 0; i < q.length; i++) TH[i] = q[i] / 10;
+    const t = await idbGet('trees'); if (t && t.length === VN * VN) TR = new Uint8Array(t);
+    terrChanged(); saveTerr();
   } catch (e) {}
 }
 // 抹平笔刷：把半径内的格点朝目标海拔拉
 function brush(w) {
   ensureTH();
-  const tgt = numIn('tb-elev', 0, -500, 3000), r = numIn('tb-rad', 150, 40, 4000), str = numIn('tb-str', 0.5, 0.05, 1);
-  const i0 = Math.max(1, Math.floor((w[0] - r + HALF) / CELL)), i1 = Math.min(GN - 1, Math.ceil((w[0] + r + HALF) / CELL));
-  const j0 = Math.max(1, Math.floor((w[1] - r + HALF) / CELL)), j1 = Math.min(GN - 1, Math.ceil((w[1] + r + HALF) / CELL));
+  const tgt = numIn('tb-elev', 0, -500, 3000), r = numIn('tb-rad', 150, 20, 4000), str = numIn('tb-str', 0.5, 0.05, 1);
+  const [i0, i1, j0, j1] = cellBox(w, r);
   for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
     const d = Math.hypot(i * CELL - HALF - w[0], j * CELL - HALF - w[1]) / r; if (d >= 1) continue;
     const o = j * VN + i; TH[o] += (tgt - TH[o]) * str * (1 - sst(0.55, 1, d));
@@ -772,7 +893,7 @@ function vnoise(x, y, seed) {
   return (h(xi, yi) * (1 - u) + h(xi + 1, yi) * u) * (1 - v) + (h(xi, yi + 1) * (1 - u) + h(xi + 1, yi + 1) * u) * v;
 }
 function genMountains() {
-  const seed = numIn('tg-seed', 7, -1e9, 1e9) | 0, maxH = numIn('tg-max', 600, 1, 3000), scale = numIn('tg-scale', 3000, 100, 30000), oct = numIn('tg-oct', 5, 1, 8) | 0;
+  const seed = numIn('tg-seed', 7, -1e9, 1e9) | 0, maxH = numIn('tg-max', 600, 1, 3000), scale = numIn('tg-scale', 3000, 100, 30000), oct = numIn('tg-oct', 6, 1, 9) | 0;
   const gain = numIn('tg-gain', 0.5, 0.2, 0.8), ridge = numIn('tg-ridge', 0.7, 0, 1), ang = numIn('tg-angle', 25, -360, 360) * D2R, st = numIn('tg-stretch', 2, 1, 6);
   const plain = numIn('tg-plain', 0.35, 0, 0.9), cr = numIn('tg-center', 700, 0, 9000);
   pushUndoTerr(); ensureTH();
@@ -787,7 +908,7 @@ function genMountains() {
       tot += (n * (1 - ridge) + rg * ridge) * amp; norm += amp; amp *= gain; f *= 2;
     }
     let h = tot / norm; h = Math.pow(Math.max(0, (h - plain) / (1 - plain)), 1.25);
-    h *= edgeFade(i, j) * (cr > 0 ? sst(cr, cr + 600, Math.hypot(wx, wz)) : 1);
+    if (cr > 0) h *= sst(cr, cr + 600, Math.hypot(wx, wz));
     TH[j * VN + i] = h; if (h > mx) mx = h;
   }
   const k = mx > 0 ? maxH / mx : 0; for (let i = 0; i < TH.length; i++) TH[i] *= k;
@@ -799,8 +920,8 @@ async function importImg(file) {
     const g = cv.getContext('2d', { willReadFrequently: true }); g.imageSmoothingQuality = 'high'; g.drawImage(bmp, 0, 0, VN, VN); if (bmp.close) bmp.close();
     const d = g.getImageData(0, 0, VN, VN).data, lo = numIn('ti-min', 0, -500, 3000), hi = numIn('ti-max', 600, -500, 3000);
     pushUndoTerr(); ensureTH();
-    for (let j = 0; j < VN; j++) for (let i = 0; i < VN; i++) { const o = j * VN + i, q = o * 4; TH[o] = (lo + (d[q] * 0.299 + d[q + 1] * 0.587 + d[q + 2] * 0.114) / 255 * (hi - lo)) * edgeFade(i, j); }
-    terrChanged(); saveTerr(); $('#t-status').textContent = '已导入。图片被缩放到 513×513 格，铺满 18 km 见方；最外圈约 350 m 会过渡到 0。';
+    for (let j = 0; j < VN; j++) for (let i = 0; i < VN; i++) { const o = j * VN + i, q = o * 4; TH[o] = lo + (d[q] * 0.299 + d[q + 1] * 0.587 + d[q + 2] * 0.114) / 255 * (hi - lo); }
+    terrChanged(); saveTerr(); $('#t-status').textContent = '已导入。图片被缩放到 1025×1025 格，铺满 18 km 见方。';
   } catch (e) { $('#t-status').textContent = '这个文件读不出来，请换一张 PNG 或 JPG。'; }
 }
 // 水文：优先级洪泛一次求出“每格流向哪”和“洼地填到多高”，再反向累加汇水量
@@ -911,7 +1032,7 @@ function canalWater(wet) {                                                      
 function updateSrcRead() { $('#ws-read').textContent = S.env.src.length ? `已放 ${S.env.src.length} 个水点：` + S.env.src.map(q => q.h + ' m').join('、') : '还没有水点'; }
 function buildTerrain() {
   terrDirty = false; if (!TH) { updateTerrRead(); return; }
-  const n = VN * VN, live = ui.drag && ui.drag.k === 'brush';
+  const n = VN * VN, live = ui.drag && ui.drag.k === 'brush', cp = live || (terr.copy && !terr.full); terr.copy = false;
   if (!terr.wet) terr.wet = new Uint8Array(n); const wet = terr.wet;
   if (terr.full && !live) {                                                    // 整图：重算水文（拖笔刷时先不算，松手再算）
     terr.full = false; terr.dirty.fill(1); RH.set(TH); wet.fill(0);
@@ -923,18 +1044,19 @@ function buildTerrain() {
   const sea = S.env.water, cg = hex2rgb(T.ground), ck = hex2rgb(T.rock), cs = hex2rgb(T.snow), cd = hex2rgb(T.sand), cw = hex2rgb(T.water), snow0 = Math.max(140, terr.hi * 0.62);
   if (!terr.mesh) terr.mesh = new Mesh(CV); const m = terr.mesh;
   if (!terrCv) { terrCv = document.createElement('canvas'); terrCv.width = terrCv.height = RV; terr.img = terrCv.getContext('2d').createImageData(RV, RV); }
-  const px = terr.img.data, col = [0, 0, 0], pos = [0, 0, 0];
+  const px = terr.img.data, col = [0, 0, 0], pos = [0, 0, 0], FT = [0.52, 0.3, 0.5]; let any = false;
   if (gl) gl.bindBuffer(gl.ARRAY_BUFFER, bufT);
   for (let c = 0; c < CN * CN; c++) {
-    if (!terr.dirty[c]) continue; terr.dirty[c] = 0; m.n = 0;
+    if (!terr.dirty[c]) continue; terr.dirty[c] = 0; m.n = 0; any = true; let cmin = Infinity, cmax = -Infinity;
     const i0 = (c % CN) * CH, j0 = ((c / CN) | 0) * CH;
     for (let j = j0; j <= j0 + CH; j++) for (let i = i0; i <= i0 + CH; i++) {
-      const o = j * VN + i; if (live) { RH[o] = TH[o]; wet[o] = 0; }
+      const o = j * VN + i; if (cp) { RH[o] = TH[o]; wet[o] = 0; }
       const h = RH[o];
       let nx = (RH[o - (i > 0 ? 1 : 0)] - RH[o + (i < GN ? 1 : 0)]) / (2 * CELL), nz = (RH[o - (j > 0 ? VN : 0)] - RH[o + (j < GN ? VN : 0)]) / (2 * CELL), ny = 1;
       const l = Math.hypot(nx, ny, nz); nx /= l; ny /= l; nz /= l;
-      const rk = clamp((1 - ny - 0.06) / 0.14, 0, 1) * clamp(h / 20, 0, 1), sn = clamp((h - snow0) / (snow0 * 0.3), 0, 1) * (1 - 0.6 * rk), sd = clamp(-h / 4, 0, 1), dk = 1 - 0.22 * clamp(h / 150, 0, 1), w = wet[o] / 255;
-      for (let q = 0; q < 3; q++) { let v = cg[q] * dk; v += (ck[q] - v) * rk; v += (cs[q] - v) * sn; v += (cd[q] - v) * sd; col[q] = v; }
+      if (h < cmin) cmin = h; if (h > cmax) cmax = h;
+      const fr = TR ? TR[o] / 255 : 0, rk = clamp((1 - ny - 0.06) / 0.14, 0, 1) * clamp(h / 20, 0, 1) * (1 - 0.7 * fr), sn = clamp((h - snow0) / (snow0 * 0.3), 0, 1) * (1 - 0.6 * rk), sd = clamp(-h / 4, 0, 1), dk = 1 - 0.22 * clamp(h / 150, 0, 1), w = wet[o] / 255;
+      for (let q = 0; q < 3; q++) { let v = cg[q] * dk; v += (ck[q] - v) * rk; v += (cs[q] - v) * sn; v += (cd[q] - v) * sd; col[q] = v * (1 - FT[q] * fr); }          // 有树的地方压成林地的深绿
       pos[0] = i * CELL - HALF; pos[1] = h; pos[2] = j * CELL - HALF; m.v(pos, nx, ny, nz, col, wet[o] * 0.3);          // 湿度放进 alpha，岸线由着色器按等值线画，不是一格一格的
       if (!(i & 1) && !(j & 1)) {                                              // 平面图底图取隔点，带一点山影
         const sh = clamp(0.3 + 0.85 * (nx * 0.44 + ny * 0.82 + nz * 0.36), 0.45, 1.1), under = sea != null && h < sea - 0.05, p4 = ((j >> 1) * RV + (i >> 1)) * 4;
@@ -942,16 +1064,65 @@ function buildTerrain() {
         px[p4 + 3] = 255;
       }
     }
+    terr.cb[c * 2] = cmin; terr.cb[c * 2 + 1] = cmax;
     if (gl) gl.bufferSubData(gl.ARRAY_BUFFER, c * CV * 20, m.u.subarray(0, CV * 20));
   }
+  if (any) { buildSkirt(); treesDirty = true; }
   terrCv.getContext('2d').putImageData(terr.img, 0, 0);
   updateTerrRead();
 }
-const terrGpu = () => CN * CN * CV * 20 + CH * CH * 12;
-const terrRam = () => TH ? TH.byteLength * 2 + VN * VN + RV * RV * 8 : 0;      // 高度 ×2、湿度、平面图底图
+// 地图边缘：地形保持原海拔一直到边，四周用一圈岩壁接到下方的底面
+function buildSkirt() {
+  if (!terr.skirt) terr.skirt = new Mesh(SKN); const m = terr.skirt; m.n = 0;
+  const yb = Math.min(terr.lo, 0) - 60, rock = hex2rgb(T.rock), gc = hex2rgb(T.ground), G = 40000, ctr = [0, yb, 0];
+  tri(m, [-G, yb, -G], [G, yb, -G], [G, yb, G], gc, 0); tri(m, [-G, yb, -G], [G, yb, G], [-G, yb, G], gc, 0);
+  const P = (i, j) => [i * CELL - HALF, RH[j * VN + i], j * CELL - HALF], B = (i, j) => [i * CELL - HALF, yb, j * CELL - HALF];
+  const wall = (a, b, c, d) => { tri(m, a, b, c, rock, 255, ctr); tri(m, a, c, d, rock, 255, ctr); };
+  for (let k = 0; k < GN; k++) { wall(P(k, 0), P(k + 1, 0), B(k + 1, 0), B(k, 0)); wall(P(k, GN), P(k + 1, GN), B(k + 1, GN), B(k, GN)); wall(P(0, k), P(0, k + 1), B(0, k + 1), B(0, k)); wall(P(GN, k), P(GN, k + 1), B(GN, k + 1), B(GN, k)); }
+  terr.skirtN = m.n; if (gl) gl.bufferSubData(gl.ARRAY_BUFFER, CN * CN * CV * 20, m.u.subarray(0, m.n * 20));
+}
+// ── 树：只存一张“密度图”（每格 1 字节）。远处靠地形染色表现成林，镜头附近才按密度现生成树的模型
+const treeM = new Mesh(1024); let trSt = null;
+const hsh = (a, b, c) => { let n = Math.imul(a, 374761393) + Math.imul(b, 668265263) + Math.imul(c, 2246822519) | 0; n = Math.imul(n ^ n >>> 13, 1274126177); return ((n ^ n >>> 16) >>> 0) / 4294967296; };
+function paintTrees(w) {
+  ensureTH(); if (!TR) TR = new Uint8Array(VN * VN);
+  const r = numIn('tr-rad', 200, 20, 4000), den = numIn('tr-den', 0.7, 0.05, 1) * 255, erase = $('#tr-erase').checked, [i0, i1, j0, j1] = cellBox(w, r);
+  for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+    const d = Math.hypot(i * CELL - HALF - w[0], j * CELL - HALF - w[1]) / r; if (d >= 1) continue;
+    const o = j * VN + i, f = 1 - sst(0.6, 1, d); if (erase) TR[o] *= 1 - f; else if (den * f > TR[o]) TR[o] = den * f;
+  }
+  terrChanged([i0, i1, j0, j1]);
+}
+function treesStale() {
+  const c = camCity, far = c.dist > 2800; if (treesDirty || !trSt) return true; if (far) return !trSt.far;
+  return trSt.far || Math.abs((c.tx + HALF) / CELL - trSt.ci) > trSt.W / 3 || Math.abs((c.tz + HALF) / CELL - trSt.cj) > trSt.W / 3 || Math.abs(c.dist - trSt.d) > trSt.d * 0.35;
+}
+function buildTrees() {
+  const m = treeM, c = camCity; m.n = 0; treesDirty = false;
+  const W = clamp(Math.round((500 + c.dist * 0.9) / CELL), 30, 150), ci = Math.round((c.tx + HALF) / CELL), cj = Math.round((c.tz + HALF) / CELL);
+  trSt = { ci, cj, W, d: c.dist, far: c.dist > 2800 };
+  if (TR && TH && !shop.open && !trSt.far) {
+    const k = T.night ? 0.45 : 1, cols = [[58, 122, 74], [74, 142, 84], [46, 104, 66], [92, 150, 80]].map(q => q.map(v => v * k)), wet = terr.wet; let cnt = 0;
+    out: for (let j = Math.max(0, cj - W); j <= Math.min(GN - 1, cj + W); j++) for (let i = Math.max(0, ci - W); i <= Math.min(GN - 1, ci + W); i++) {
+      const o = j * VN + i, d = TR[o]; if (!d || (wet && wet[o] > 128)) continue;
+      const n = Math.floor(d / 255 * 1.7 + hsh(i, j, 7));
+      for (let q = 0; q < n; q++) {
+        const x = (i + hsh(i, j, q * 4 + 1)) * CELL - HALF, z = (j + hsh(i, j, q * 4 + 2)) * CELL - HALF, y = H(x, z), hh = hsh(i, j, q * 4 + 3), ht = 7 + 8 * hh, rd = ht * 0.26, a0 = hh * 6.28, col = cols[(hh * 97 | 0) & 3];
+        const top = [x, y + ht, z], ctr = [x, y, z], B = a => [x + Math.cos(a0 + a) * rd, y + ht * 0.1, z + Math.sin(a0 + a) * rd];
+        const b0 = B(0), b1 = B(1.571), b2 = B(3.142), b3 = B(4.712);                                                 // 一棵树 = 一个四棱锥，12 个顶点
+        tri(m, b0, b1, top, col, 255, ctr); tri(m, b1, b2, top, col, 255, ctr); tri(m, b2, b3, top, col, 255, ctr); tri(m, b3, b0, top, col, 255, ctr);
+        if (++cnt >= 40000) break out;
+      }
+    }
+  }
+  if (gl) { gl.bindBuffer(gl.ARRAY_BUFFER, bufTr); gl.bufferData(gl.ARRAY_BUFFER, m.u.subarray(0, Math.max(1, m.n) * 20), gl.DYNAMIC_DRAW); }
+}
+const hasWater = () => S.env.water != null || S.env.lakes || S.env.rivers || S.env.src.length > 0 || S.env.canals.some(k => k.wet);
+const terrGpu = () => (CN * CN * CV + SKN) * 20 + (LODN[0] + LODN[1] + LODN[2]) * 2 + treeM.n * 20;
+const terrRam = () => TH ? TH.byteLength * 2 + VN * VN * (TR ? 2 : 1) + RV * RV * 8 : 0;      // 高度 ×2、湿度、树密度、平面图底图
 function updateTerrRead() {
   if ($('#terra').hidden) return;
-  $('#t-read').textContent = TH ? `18×18 km · 海拔 ${terr.lo.toFixed(0)} ~ ${terr.hi.toFixed(0)} m · 内存 ${fmtB(terrRam())} · 显存 ${fmtB(terrGpu())}` : '18×18 km · 当前是平地 · 占用 0 B';
+  $('#t-read').textContent = TH ? `18×18 km · 每格 ${CELL.toFixed(1)} m · 海拔 ${terr.lo.toFixed(0)} ~ ${terr.hi.toFixed(0)} m · 内存 ${fmtB(terrRam())} · 显存 ${fmtB(terrGpu())}` : '18×18 km · 当前是平地 · 占用 0 B';
 }
 function syncEnvUI() { $('#tw-on').checked = S.env.water != null; if (S.env.water != null) $('#tw-level').value = S.env.water; $('#tw-lake').checked = S.env.lakes; $('#tw-riv').checked = S.env.rivers; $('#tw-thr').value = S.env.thr; updateSrcRead(); }
 function readEnvUI() { S.env.water = $('#tw-on').checked ? numIn('tw-level', -2, -500, 3000) : null; S.env.lakes = $('#tw-lake').checked; S.env.rivers = $('#tw-riv').checked; S.env.thr = numIn('tw-thr', 300, 5, 50000); terrChanged(); save(); }
@@ -959,11 +1130,15 @@ for (const id of ['tw-on', 'tw-level', 'tw-lake', 'tw-riv', 'tw-thr']) $('#' + i
 $('#tg-go').onclick = genMountains;
 $('#tg-reseed').onclick = () => { $('#tg-seed').value = Math.random() * 99999 | 0; genMountains(); };
 $('#ti-file').onchange = e => { const f = e.target.files[0]; if (f) importImg(f); e.target.value = ''; };
-$('#tb-all').onclick = () => { const t = numIn('tb-elev', 0, -500, 3000); pushUndoTerr(); if (t === 0) { setTH(null); } else { ensureTH(); for (let j = 0; j < VN; j++) for (let i = 0; i < VN; i++) TH[j * VN + i] = t * edgeFade(i, j); terrChanged(); saveTerr(); } $('#t-status').textContent = `全图已抹平到 ${t} m。`; };
+$('#tb-all').onclick = () => { const t = numIn('tb-elev', 0, -500, 3000); pushUndoTerr(); if (t === 0) { setTH(null); } else { ensureTH(); for (let j = 0; j < VN; j++) for (let i = 0; i < VN; i++) TH[j * VN + i] = t; terrChanged(); saveTerr(); } $('#t-status').textContent = `全图已抹平到 ${t} m。`; };
 $('#t-reset').onclick = () => { if (!TH) return; pushUndoTerr(); setTH(null); $('#t-status').textContent = '已恢复平地，地形内存已释放。'; };
 $('#terraClose').onclick = () => setTool('select');
-function setTmode(m) { ui.tmode = ui.tmode === m ? 'brush' : m; ui.rs = ui.rc = null; $('#ws-mode').setAttribute('aria-pressed', ui.tmode === 'water'); $('#cn-mode').setAttribute('aria-pressed', ui.tmode === 'canal'); setHint(); req(); }
+function setTmode(m) { ui.tmode = ui.tmode === m ? 'brush' : m; ui.rs = ui.rc = null; $('#ws-mode').setAttribute('aria-pressed', ui.tmode === 'water'); $('#cn-mode').setAttribute('aria-pressed', ui.tmode === 'canal'); $('#tr-mode').setAttribute('aria-pressed', ui.tmode === 'tree'); setHint(); req(); }
 $('#ws-mode').onclick = () => setTmode('water');
+$('#tr-mode').onclick = () => setTmode('tree');
+$('#tr-clear').onclick = () => { if (!TR) return; TR = null; terrChanged(); saveTerr(); $('#t-status').textContent = '树已全部清除。'; };
+$('#tr-rad').addEventListener('input', req);
+setInterval(() => { if (!document.hidden && !shop.open && TH && $('#tw-anim').checked && hasWater()) req(); }, 90);   // 有水时约每秒 11 帧，让波光闪动；没水或切走标签页就停
 $('#cn-mode').onclick = () => setTmode('canal');
 $('#cn-clear').onclick = () => { if (!S.env.canals.some(k => k.wet)) return; pushUndoTerr(); for (const k of S.env.canals) k.wet = 0; terrChanged(); save(); $('#t-status').textContent = '渠水已排干，渠道本身还在。'; };
 $('#ws-clear').onclick = () => { if (!S.env.src.length) return; pushUndo(); S.env.src = []; terrChanged(); save(); updateSrcRead(); };
@@ -981,7 +1156,7 @@ function readTheme() {
 const c3 = $('#c3'), c2 = $('#c2'), g2 = c2.getContext('2d');
 const gl = c3.getContext('webgl2', { antialias: true, alpha: false, powerPreference: 'low-power' });
 const stat = new Mesh(4096), dyn = new Mesh(512);
-let prog, U = {}, skyProg, SU = {}, vaoSky, vaoS, vaoD, vaoT, bufS, bufD, bufT;
+let prog, U = {}, skyProg, SU = {}, vaoSky, vaoS, vaoD, vaoT, vaoTr, bufS, bufD, bufT, bufTr;
 const VS = `#version 300 es
 layout(location=0) in vec3 aP; layout(location=1) in vec3 aN; layout(location=2) in vec4 aC;
 uniform mat4 uVP; out vec3 vP; out vec3 vN; out vec4 vC;
@@ -992,25 +1167,35 @@ float vn(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.-2.*f); return mix(mix(ha
 const FS = `#version 300 es
 precision highp float;
 in vec3 vP; in vec3 vN; in vec4 vC;
-uniform vec3 uSun,uSky,uGrid,uEye,uWin,uLit,uWater,uSand; uniform float uAmb,uAlpha,uFog,uNight;
+uniform vec3 uSun,uSky,uGrid,uEye,uWin,uLit,uWater,uSand; uniform float uAmb,uAlpha,uFog,uNight,uT; uniform vec4 uTa[48]; uniform vec4 uTb[48]; uniform int uTn;
 out vec4 o;${NOISE}
-vec3 water(float dist){                           // 水面：按视角混入天色，加一点细波和日光
-  vec3 v=normalize(uEye-vP); float fr=pow(1.-max(v.y,0.),3.);
-  float rp=(vn(vP.xz*.07)+.5*vn(vP.xz*.21+7.))/1.5;
-  vec3 c=uWater*(.88+.2*rp*(1.-smoothstep(300.,2500.,dist)));
-  c=mix(c,uSky,.1+.55*fr);
-  return c+pow(max(normalize(v+uSun).y,0.),260.)*.3*(1.-uNight);
+float wav(vec2 p){ return vn(p*.085+vec2(uT*.06,uT*.035))+.5*vn(p*.26-vec2(uT*.09,-uT*.05)); }
+vec3 water(float dist){                           // 水面：细波扰动法线 → 天色反光 + 日光高光 + 碎闪的波光
+  vec3 v=normalize(uEye-vP); vec2 p=vP.xz; float near=1.-smoothstep(500.,4000.,dist);
+  vec2 g=vec2(wav(p+vec2(.7,0.))-wav(p-vec2(.7,0.)),wav(p+vec2(0.,.7))-wav(p-vec2(0.,.7)))/1.4;
+  vec3 nw=normalize(vec3(-g.x*2.2*near,1.,-g.y*2.2*near));
+  float fr=pow(1.-max(dot(nw,v),0.),3.);
+  vec3 c=mix(uWater*(.9+.12*wav(p*.5)*near),uSky,.1+.55*fr);
+  vec3 hv=normalize(v+uSun); float day=1.-uNight*.85;
+  float spec=pow(max(dot(nw,hv),0.),220.);
+  float gl=vn(p*1.7+uT*.55)*vn(p*3.9-uT*.7);                                    // 两层细噪声相乘，亮点很稀，随时间闪动
+  float glit=smoothstep(.42,.7,gl)*pow(max(dot(normalize(vec3(-g.x*5.,1.,-g.y*5.)),hv),0.),18.)*(1.-smoothstep(150.,1800.,dist));
+  float tw=smoothstep(.5,.78,gl)*(1.-smoothstep(120.,1400.,dist))*(.35+.65*fr);   // 不看太阳方向也有零星闪光
+  return c+(spec*.9+glit*1.3+tw*.55)*vec3(1.,.97,.9)*day;
 }
 void main(){
   vec3 n=normalize(vN); vec3 c=vC.rgb; float dist=length(vP-uEye); float glow=0.; float lit=1.;
   float fwA=fwidth(vC.a); vec2 gq=vP.xz/16.; vec2 fq=max(fwidth(gq),vec2(1e-5));
   float lam=uAmb+(1.-uAmb)*max(dot(n,uSun),0.)*1.1+n.y*.04;
   if(vC.a<.35){                                   // 地面与地形：草地、网格、岸线、水全部按坐标现算
+    for(int i=0;i<48;i++){ if(i>=uTn) break;       // 隧道洞身范围内的地形挖掉
+      vec2 a=uTa[i].xy, ab=uTa[i].zw-a; float t=clamp(dot(vP.xz-a,ab)/max(dot(ab,ab),1e-4),0.,1.); vec2 d=vP.xz-(a+ab*t);
+      if(dot(d,d)<uTb[i].z*uTb[i].z && vP.y<mix(uTb[i].x,uTb[i].y,t)+uTb[i].w) discard; }
     float w=vC.a/.3;
     float grn=clamp((c.g-max(c.r,c.b))*12.,0.,1.);
     vec3 g=c*(.88+.24*vn(vP.xz/260.));                                         // 大片深浅
     g=mix(g,g*vec3(1.14,1.06,.7),smoothstep(.55,.8,vn(vP.xz/38.+3.))*.32);      // 偏黄的草甸斑块
-    g=mix(g,g*vec3(.6,.78,.62),smoothstep(.5,.68,vn(vP.xz/95.+11.))*smoothstep(.015,.08,1.-n.y)*step(6.,vP.y)*.85);   // 坡上的林带
+    g=mix(g,g*vec3(.6,.78,.62),smoothstep(.5,.68,vn(vP.xz/95.+11.))*smoothstep(.015,.08,1.-n.y)*step(6.,vP.y)*.3);   // 坡上的林带
     g*=1.+(vn(vP.xz/2.3)-.5)*.3*(1.-smoothstep(60.,500.,dist));                // 近处的草叶颗粒
     c=mix(c,g,grn);
     vec2 a=abs(fract(gq-.5)-.5)/fq;
@@ -1019,6 +1204,7 @@ void main(){
     c=mix(c,uSand*(uAmb+.45),smoothstep(.22,.5,w)*.7);                         // 岸边一圈沙
     float e=fwA/.3*.75+1e-4; c=mix(c,water(dist),smoothstep(.5-e,.5+e,w)); lit=0.;
   } else if(vC.a>.7 && vC.a<.9){ c=water(dist); lit=0.; }
+  else if(vC.a>.92 && vC.a<.97){ lit=0.; }        // 发光面：路灯灯头、隧道灯带
   else if(vC.a<.6 && abs(n.y)<.5){               // 带窗墙面：窗格按位置现算，不占贴图
     vec2 t=normalize(vec2(-n.z,n.x)); float u=dot(vP.xz,t)/3.; float v=vP.y/3.2;
     float fu=fract(u), fv=fract(v);
@@ -1052,7 +1238,7 @@ function initGL() {
   const sh = (t, s) => { const o = gl.createShader(t); gl.shaderSource(o, s); gl.compileShader(o); if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) console.error(gl.getShaderInfoLog(o)); return o; };
   prog = gl.createProgram(); gl.attachShader(prog, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(prog);
   if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) console.error(gl.getProgramInfoLog(prog));
-  for (const n of ['uVP', 'uSun', 'uSky', 'uGrid', 'uEye', 'uWin', 'uLit', 'uWater', 'uSand', 'uAmb', 'uAlpha', 'uFog', 'uNight']) U[n] = gl.getUniformLocation(prog, n);
+  for (const n of ['uVP', 'uSun', 'uSky', 'uGrid', 'uEye', 'uWin', 'uLit', 'uWater', 'uSand', 'uT', 'uTa', 'uTb', 'uTn', 'uAmb', 'uAlpha', 'uFog', 'uNight']) U[n] = gl.getUniformLocation(prog, n);
   skyProg = gl.createProgram(); gl.attachShader(skyProg, sh(gl.VERTEX_SHADER, SKY_VS)); gl.attachShader(skyProg, sh(gl.FRAGMENT_SHADER, SKY_FS)); gl.linkProgram(skyProg);
   if (!gl.getProgramParameter(skyProg, gl.LINK_STATUS)) console.error(gl.getProgramInfoLog(skyProg));
   for (const n of ['uR', 'uUp', 'uF', 'uZen', 'uHor', 'uCloud', 'uEye', 'uTan', 'uAsp']) SU[n] = gl.getUniformLocation(skyProg, n);
@@ -1061,9 +1247,9 @@ function initGL() {
     gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 20, 0);
     gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 3, gl.BYTE, true, 20, 12);
     gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 4, gl.UNSIGNED_BYTE, true, 20, 16); return [vao, buf]; };
-  [vaoS, bufS] = mk(); [vaoD, bufD] = mk(); [vaoT, bufT] = mk();
-  const idx = new Uint16Array(CH * CH * 6), cw = CH + 1; let q = 0;          // 所有地形分块共用这一份索引
-  for (let j = 0; j < CH; j++) for (let i = 0; i < CH; i++) { const o = j * cw + i; idx[q++] = o; idx[q++] = o + cw; idx[q++] = o + 1; idx[q++] = o + 1; idx[q++] = o + cw; idx[q++] = o + cw + 1; }
+  [vaoS, bufS] = mk(); [vaoD, bufD] = mk(); [vaoTr, bufTr] = mk(); [vaoT, bufT] = mk();
+  const idx = new Uint16Array(LODN[0] + LODN[1] + LODN[2]), cw = CH + 1; let q = 0;   // 三档精度的索引，所有分块共用
+  for (const st of [1, 2, 4]) for (let j = 0; j < CH; j += st) for (let i = 0; i < CH; i += st) { const o = j * cw + i; idx[q++] = o; idx[q++] = o + cw * st; idx[q++] = o + st; idx[q++] = o + st; idx[q++] = o + cw * st; idx[q++] = o + cw * st + st; }
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, gl.createBuffer()); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, idx, gl.STATIC_DRAW); gl.bindVertexArray(null);
   gl.enable(gl.DEPTH_TEST); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 }
@@ -1111,10 +1297,9 @@ function buildStatic() {
   const m = stat; m.n = 0;
   const G = 40000, gc = hex2rgb(T.ground);
   const gq = (x0, z0, x1, z1) => { tri(m, [x0, 0, z0], [x1, 0, z0], [x1, 0, z1], gc, 0); tri(m, [x0, 0, z0], [x1, 0, z1], [x0, 0, z1], gc, 0); };
-  if (shop.open || !TH) gq(-G, -G, G, G);
-  else { const h = HALF; gq(-G, -G, G, -h); gq(-G, h, G, G); gq(-G, -h, -h, h); gq(h, -h, G, h); }   // 有地形时外围只留一圈平地
+  if (shop.open || !TH) gq(-G, -G, G, G);                                    // 有地形时，底面和四周岩壁归地形那一遍画
   if (shop.open) { emitAsset(m, shop.draft, { x: 0, z: 0, r: 0 }); }
-  else { computeJ(); for (const r of S.roads) emitRoad(m, r); emitJunctions(m); for (const b of S.blds) emitAsset(m, S.assets[b.a], b); }
+  else { computeJ(); lampN = 0; for (const r of S.roads) emitRoad(m, r); emitJunctions(m); tunnelHoles(); for (const b of S.blds) emitAsset(m, S.assets[b.a], b); }
   if (gl) { gl.bindBuffer(gl.ARRAY_BUFFER, bufS); gl.bufferData(gl.ARRAY_BUFFER, m.u.subarray(0, m.n * 20), gl.STATIC_DRAW); }
 }
 function buildDyn() {
@@ -1133,8 +1318,8 @@ function buildDyn() {
     const L = lift() + 0.4;
     if (S.env.water != null) { const y = S.env.water - 0.05, G = 40000, wc = hex2rgb(T.water); tri(m, [-G, y, -G], [G, y, -G], [G, y, G], wc, 204); tri(m, [-G, y, -G], [G, y, G], [-G, y, G], wc, 204); }
     if (ui.tool === 'terrain') for (const q of S.env.src) emitPart(m, { s: 'cone', x: q.x, z: q.z, y: Math.max(q.h, H(q.x, q.z)) + k * 2.2, w: k * 1.6, d: k * 1.6, h: -k * 2.2 }, ID_TF, sel);   // 水点标记：倒锥指向水面
-    if (ui.tool === 'terrain' && ui.tmode === 'brush' && ui.hover) {
-      const r = numIn('tb-rad', 150, 40, 4000), t = Math.max(1, k * 0.2), h = ui.hover;
+    if (ui.tool === 'terrain' && (ui.tmode === 'brush' || ui.tmode === 'tree') && ui.hover) {
+      const r = ui.tmode === 'tree' ? numIn('tr-rad', 200, 20, 4000) : numIn('tb-rad', 150, 20, 4000), t = Math.max(1, k * 0.2), h = ui.hover;
       for (let i = 0; i < 40; i++) {
         const a0 = i / 40 * TAU, a1 = (i + 1) / 40 * TAU, P0 = (a, rr) => { const x = h[0] + Math.cos(a) * rr, z = h[1] + Math.sin(a) * rr; return [x, H(x, z) + 0.8, z]; };
         const p0 = P0(a0, r), p1 = P0(a1, r), p2 = P0(a1, r + t), p3 = P0(a0, r + t); tri(m, p0, p1, p2, acc, 255); tri(m, p0, p2, p3, acc, 255);
@@ -1153,9 +1338,9 @@ function buildDyn() {
     }
     if (ui.sel && ui.sel.k === 'road' && S.roads[ui.sel.i]) {
       const r = S.roads[ui.sel.i], mid = roadMid(r);
-      ribbon(m, roadPts(r), r.w / 2, L, sel, 255);
-      for (const e of [r.a, r.b]) emitPart(m, { s: 'cyl', x: e[0], z: e[1], y: H(e[0], e[1]), w: k * 1.3, d: k * 1.3, h: k * 1.6 }, ID_TF, sel);
-      emitPart(m, { s: 'pyr', x: mid[0], z: mid[1], y: H(mid[0], mid[1]), w: k * 1.6, d: k * 1.6, h: k * 2.4, r: 45 }, ID_TF, acc);
+      ribbon(m, roadPts(r), r.w / 2, L + (r.m === 2 ? 0.2 : 0), sel, 255, r.h ? p => hAt(r.h, p.t) : null);
+      for (const [e, te] of [[r.a, 0], [r.b, 1]]) emitPart(m, { s: 'cyl', x: e[0], z: e[1], y: roadYAt(r, te, e[0], e[1]), w: k * 1.3, d: k * 1.3, h: k * 1.6 }, ID_TF, sel);
+      emitPart(m, { s: 'pyr', x: mid[0], z: mid[1], y: roadYAt(r, 0.5, mid[0], mid[1]), w: k * 1.6, d: k * 1.6, h: k * 2.4, r: 45 }, ID_TF, acc);
     }
     if (ui.cand && ui.cand.k === 'road' && S.roads[ui.cand.i]) ribbon(m, roadPts(S.roads[ui.cand.i]), S.roads[ui.cand.i].w / 5, L, acc, 255);
     for (const [it, colr, thick] of [[ui.sel, sel, 1], [ui.cand, acc, 0.5]]) if (it && it.k === 'bld' && S.blds[it.i]) {
@@ -1192,13 +1377,29 @@ function draw3() {
   gl.useProgram(prog); gl.uniformMatrix4fv(U.uVP, false, VP);
   gl.uniform3f(U.uSun, 0.44, 0.82, 0.36); gl.uniform3fv(U.uSky, sky); gl.uniform3fv(U.uGrid, v3(T.ggrid)); gl.uniform3fv(U.uEye, e);
   gl.uniform3fv(U.uWin, v3(T.win)); gl.uniform3fv(U.uLit, v3(T.lit)); gl.uniform3fv(U.uWater, v3(T.water)); gl.uniform3fv(U.uSand, v3(T.sand));
-  gl.uniform1f(U.uAmb, T.night ? 0.42 : 0.58); gl.uniform1f(U.uNight, T.night ? 1 : 0); gl.uniform1f(U.uFog, Math.max(26000, c.dist * 8));
+  gl.uniform1f(U.uAmb, T.night ? 0.42 : 0.58); gl.uniform1f(U.uNight, T.night ? 1 : 0); gl.uniform1f(U.uT, (performance.now() / 1000) % 3600);
+  gl.uniform1i(U.uTn, shop.open ? 0 : tunSeg.n); gl.uniform4fv(U.uTa, tunSeg.a); gl.uniform4fv(U.uTb, tunSeg.b); gl.uniform1f(U.uFog, Math.max(26000, c.dist * 8));
   gl.disable(gl.BLEND); gl.uniform1f(U.uAlpha, 1);
+  const selR = ui.sel && ui.sel.k === 'road' ? S.roads[ui.sel.i] : null, xray = !shop.open && ((ui.tool === 'road' && $('#roadLv').value === '2') || (selR && selR.m === 2));
+  const drawTerrain = () => {
   if (TH && !shop.open && terr.mesh) {
     gl.bindVertexArray(vaoT); gl.bindBuffer(gl.ARRAY_BUFFER, bufT);
-    for (let c = 0; c < CN * CN; c++) { const o = c * CV * 20; gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 20, o); gl.vertexAttribPointer(1, 3, gl.BYTE, true, 20, o + 12); gl.vertexAttribPointer(2, 4, gl.UNSIGNED_BYTE, true, 20, o + 16); gl.drawElements(gl.TRIANGLES, CH * CH * 6, gl.UNSIGNED_SHORT, 0); }
+    const ptr = o => { gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 20, o); gl.vertexAttribPointer(1, 4, gl.BYTE, true, 20, o + 12); gl.vertexAttribPointer(2, 4, gl.UNSIGNED_BYTE, true, 20, o + 16); };
+    const th = Math.tan(FOV / 2), tw = th * asp, kh = Math.sqrt(1 + th * th), kw = Math.sqrt(1 + tw * tw), cs = CH * CELL;
+    for (let c = 0; c < CN * CN; c++) {
+      const x = ((c % CN) + 0.5) * cs - HALF, z = (((c / CN) | 0) + 0.5) * cs - HALF, y0 = terr.cb[c * 2], y1 = terr.cb[c * 2 + 1], R = Math.hypot(cs * 0.71, (y1 - y0) / 2);
+      const dx = x - e[0], dy = (y0 + y1) / 2 - e[1], dz = z - e[2], zz = dx * b.f[0] + dy * b.f[1] + dz * b.f[2];
+      if (zz < -R || Math.abs(dx * b.r[0] + dy * b.r[1] + dz * b.r[2]) > zz * tw + R * kw || Math.abs(dx * b.u[0] + dy * b.u[1] + dz * b.u[2]) > zz * th + R * kh) continue;   // 视野外的块不画
+      const dd = Math.hypot(dx, dy, dz) - R, lod = dd < 3200 ? 0 : dd < 7500 ? 1 : 2;                                  // 远处的块降档
+      ptr(c * CV * 20); gl.drawElements(gl.TRIANGLES, LODN[lod], gl.UNSIGNED_SHORT, (lod === 0 ? 0 : lod === 1 ? LODN[0] : LODN[0] + LODN[1]) * 2);
+    }
+    ptr(CN * CN * CV * 20); gl.drawArrays(gl.TRIANGLES, 0, terr.skirtN);
+    if (treeM.n) { gl.bindVertexArray(vaoTr); gl.drawArrays(gl.TRIANGLES, 0, treeM.n); }
   }
+  };
+  if (!xray) drawTerrain();
   gl.bindVertexArray(vaoS); gl.drawArrays(gl.TRIANGLES, 0, stat.n);
+  if (xray) { gl.enable(gl.BLEND); gl.uniform1f(U.uAlpha, 0.55); drawTerrain(); gl.disable(gl.BLEND); gl.uniform1f(U.uAlpha, 1); }   // 修隧道时地形半透明，能看见地下
   if (dyn.n) { gl.enable(gl.BLEND); gl.uniform1f(U.uAlpha, 0.62); gl.bindVertexArray(vaoD); gl.drawArrays(gl.TRIANGLES, 0, dyn.n); }
 }
 
@@ -1244,8 +1445,11 @@ function draw2() {
     const z = (f.d / 2 + 1.5) * s; g.fillStyle = T.accent; g.beginPath(); g.moveTo(-1.5 * s, z); g.lineTo(1.5 * s, z); g.lineTo(0, z + 3 * s); g.fill();
     g.fillStyle = T.mute; g.font = '600 12px ' + 'Barlow Condensed, sans-serif'; g.textAlign = 'center'; g.fillText('正面', 0, z + 3 * s + 14);
   } else {
-    for (const r of S.roads) { roadPath(g, r, s); g.strokeStyle = T.walk; g.lineWidth = (r.w + 3) * s; g.stroke(); }
-    for (const r of S.roads) { roadPath(g, r, s); g.strokeStyle = T.road; g.lineWidth = r.w * s; g.stroke(); }
+    const fade = r => { g.globalAlpha = r.m === 2 ? 0.38 : 1; };                 // 隧道画得淡，桥加一圈深色边
+    for (const r of S.roads) if (r.m === 1) { roadPath(g, r, s); g.lineCap = 'butt'; g.strokeStyle = T.ink; g.lineWidth = (r.w + 3) * s + 4; g.stroke(); g.lineCap = 'round'; }
+    for (const r of S.roads) { fade(r); roadPath(g, r, s); g.strokeStyle = T.walk; g.lineWidth = (r.w + 3) * s; g.stroke(); }
+    for (const r of S.roads) { fade(r); roadPath(g, r, s); g.strokeStyle = T.road; g.lineWidth = r.w * s; g.stroke(); }
+    g.globalAlpha = 1;
     g.lineCap = 'butt';
     for (const r of S.roads) { roadPath(g, r, s); g.strokeStyle = T.mark; g.lineWidth = Math.max(1, 0.4 * s); g.setLineDash(r.w >= 12 ? [] : [4 * s, 5 * s]); g.stroke(); }
     g.setLineDash([]);
@@ -1290,8 +1494,8 @@ function draw2() {
       g.save(); g.translate(b.x * s, b.z * s); g.rotate(b.r); g.strokeStyle = T.sel; g.lineWidth = 2; g.strokeRect(-f.w / 2 * s - 3, -f.d / 2 * s - 3, f.w * s + 6, f.d * s + 6); g.restore();
     }
     if (ui.tool === 'terrain' && ui.hover) {
-      const h = ui.hover, r = numIn('tb-rad', 150, 40, 4000);
-      if (ui.tmode === 'brush') { g.strokeStyle = T.accent; g.lineWidth = 2; g.beginPath(); g.arc(h[0] * s, h[1] * s, r * s, 0, TAU); g.stroke(); }
+      const h = ui.hover, r = numIn('tb-rad', 150, 20, 4000);
+      if (ui.tmode === 'brush' || ui.tmode === 'tree') { g.strokeStyle = T.accent; g.lineWidth = 2; g.beginPath(); g.arc(h[0] * s, h[1] * s, (ui.tmode === 'tree' ? numIn('tr-rad', 200, 20, 4000) : r) * s, 0, TAU); g.stroke(); }
       g.font = '600 13px Barlow Condensed, sans-serif'; g.fillStyle = T.ink; g.textAlign = 'left'; g.fillText('海拔 ' + elevAt(h[0], h[1]).toFixed(1) + ' m', h[0] * s + 10, h[1] * s - 10);
     }
     if (ui.tool === 'terrain') for (const q of S.env.src) {
@@ -1331,6 +1535,7 @@ function frame() {
     if (k >= 1) fly = null; else req();
   }
   if (terrDirty) buildTerrain();
+  if (!shop.open && treesStale()) buildTrees();
   if (dirtyGeom) { buildStatic(); dirtyGeom = false; updateMeter(); }
   buildDyn(); draw3(); draw2();
 }
@@ -1390,7 +1595,7 @@ c3.addEventListener('pointerleave', () => setEdge(null));
 c3.addEventListener('pointerdown', () => setEdge(null));
 gestures(c3, {
   down(e) {
-    const brushing = ui.tool === 'terrain' && ui.tmode === 'brush' && !shop.open;
+    const brushing = ui.tool === 'terrain' && (ui.tmode === 'brush' || ui.tmode === 'tree') && !shop.open;
     m3 = { mode: (e.button === 1 || e.shiftKey || (e.button === 2 && !brushing)) ? 'pan' : 'orbit', moved: 0, btn: e.button };
     if (shop.open || e.button !== 0 || e.shiftKey) return;
     ui.tol = Math.max(2, camCity.dist * 0.02);
@@ -1446,6 +1651,7 @@ addEventListener('keydown', e => {
 addEventListener('keyup', e => { if (e.key === ' ') space = false; });
 $('#tools').addEventListener('click', e => { const b = e.target.closest('button'); if (b && !shop.open) setTool(b.dataset.tool); });
 $('#rotBtn').onclick = () => rotate(1);
+$('#roadLv').onchange = req;
 $('#undoBtn').onclick = () => { if (!shop.open) undo(); };
 $('#snapRoad').onchange = e => { ui.snap = e.target.checked; req(); };
 let clearArm = 0;
@@ -1611,7 +1817,7 @@ $('#aiStop').onclick = () => { if (aiCtl) aiCtl.abort(); };
 
 /* ───────── 内存表 ───────── */
 function updateMeter() {
-  const ab = JSON.stringify(Object.values(S.assets).map(a => a.parts)).length, na = Object.keys(S.assets).length, tb = TH ? terrGpu() : 0, nv = stat.n + (TH ? CN * CN * CV : 0), vb = stat.n * 20 + tb;
+  const ab = JSON.stringify(Object.values(S.assets).map(a => a.parts)).length, na = Object.keys(S.assets).length, tb = TH ? terrGpu() : 0, nv = stat.n + (TH ? CN * CN * CV + terr.skirtN + treeM.n : 0), vb = stat.n * 20 + tb;
   $('#meter').innerHTML = `<dt>资产配方</dt><dd>${fmtB(ab)}</dd><dt>顶点 / 显存</dt><dd>${nv.toLocaleString()} / ${fmtB(vb)}</dd>`;
   if ($('#ledger').hidden) return;
   $('#lg-assets').textContent = `${na} 件 · ${fmtB(ab)}`;
@@ -1662,6 +1868,7 @@ function boot() {
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(req);
 }
 boot();
+window.LiteCity = { state: S, camera: camCity, redraw: req };              // 调试和脚本用的入口
 })();
 </script>
 
