@@ -54,7 +54,7 @@ function buildTerrain() {
     canalWater(wet); floodSources(wet);
     if (S.env.lakes || S.env.rivers || S.env.src.length || S.env.canals.length) smoothWet(wet);
   }
-  const sea = S.env.water, cg = hex2rgb(T.ground), ck = hex2rgb(T.rock), cs = hex2rgb(T.snow), cd = hex2rgb(T.sand), cw = hex2rgb(T.water), snow0 = Math.max(140, terr.hi * 0.62);
+  const sea = S.env.water, cg = hex2rgb(W.ground), ck = hex2rgb(W.rock), cs = hex2rgb(W.snow), cd = hex2rgb(W.sand), cw = hex2rgb(W.water), snow0 = Math.max(140, terr.hi * 0.62);
   if (!terr.mesh) terr.mesh = new Mesh(CV); const m = terr.mesh;
   if (!terrCv) { terrCv = document.createElement('canvas'); terrCv.width = terrCv.height = RV; terr.img = terrCv.getContext('2d').createImageData(RV, RV); }
   const px = terr.img.data, col = [0, 0, 0], pos = [0, 0, 0], FT = [0.52, 0.3, 0.5]; let any = false;
@@ -87,7 +87,7 @@ function buildTerrain() {
 // 地图边缘：地形保持原海拔一直到边，四周用一圈岩壁接到下方的底面
 function buildSkirt() {
   if (!terr.skirt) terr.skirt = new Mesh(SKN); const m = terr.skirt; m.n = 0;
-  const yb = Math.min(terr.lo, 0) - 60, rock = hex2rgb(T.rock), gc = hex2rgb(T.ground), G = 40000, ctr = [0, yb, 0];
+  const yb = Math.min(terr.lo, 0) - 60, rock = hex2rgb(W.rock), gc = hex2rgb(W.ground), G = 40000, ctr = [0, yb, 0];
   tri(m, [-G, yb, -G], [G, yb, -G], [G, yb, G], gc, 0); tri(m, [-G, yb, -G], [G, yb, G], [-G, yb, G], gc, 0);
   const P = (i, j) => [i * CELL - HALF, RH[j * VN + i], j * CELL - HALF], B = (i, j) => [i * CELL - HALF, yb, j * CELL - HALF];
   const wall = (a, b, c, d) => { tri(m, a, b, c, rock, 255, ctr); tri(m, a, c, d, rock, 255, ctr); };

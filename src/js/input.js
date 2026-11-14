@@ -48,7 +48,13 @@ c3.addEventListener('dblclick', e => { if (shop.open || ui.tool !== 'select') re
 // 右：实景
 let m3 = null, edge = null, lastT = 0;
 function setEdge(v) { edge = v; const on = (c, f) => $('.edge.' + c).classList.toggle('on', !!f); on('e-t', v && v.fz > 0); on('e-b', v && v.fz < 0); on('e-l', v && v.fx < 0); on('e-r', v && v.fx > 0); }
-c3.addEventListener('pointerleave', () => setEdge(null));
+c3.addEventListener('pointerleave', e => {                                       // 实景占满时，鼠标从哪边移出画框，镜头就继续往哪边走，直到鼠标回到画面中间
+  if (!$('#stage').classList.contains('only3') || e.pointerType !== 'mouse' || e.buttons) return setEdge(null);
+  const rc = c3.getBoundingClientRect(), ox = e.clientX <= rc.left + 1 ? -1 : e.clientX >= rc.right - 1 ? 1 : 0, oz = e.clientY <= rc.top + 1 ? 1 : e.clientY >= rc.bottom - 1 ? -1 : 0;
+  if (!ox && !oz) return setEdge(null);                                          // 只是移到了画面里的控件上
+  setEdge({ fx: ox, fz: oz, t0: edge ? edge.t0 : performance.now(), out: true }); req();
+});
+document.addEventListener('pointermove', e => { if (edge && edge.out && e.target !== c3 && e.target.closest && e.target.closest('.bar,.shelf,.shop,.ledger,.fx,.ptop')) setEdge(null); });   // 移到工具栏上就停，不然没法点按钮
 c3.addEventListener('pointerdown', () => setEdge(null));
 gestures(c3, {
   down(e) {
@@ -66,7 +72,7 @@ gestures(c3, {
   move(e, dx, dy) {
     if (!m3) return; m3.moved += Math.abs(dx) + Math.abs(dy); const c = cam();
     if (m3.mode === 'tool') { const w = groundHit(rayAt(e)); if (w) dragTo(w); return; }
-    if (m3.mode === 'orbit') { c.yaw -= dx * 0.006; c.pitch = clamp(c.pitch + dy * 0.005, 0.06, 1.5); }
+    if (m3.mode === 'orbit') { c.yaw -= dx * 0.006; c.pitch = clamp(c.pitch + dy * 0.005, PUP, 1.5); }
     else { const k = c.dist * 0.0017, sy = Math.sin(c.yaw), cy = Math.cos(c.yaw); c.tx += -cy * dx * k - sy * dy * k; c.tz += sy * dx * k - cy * dy * k; }
     req();
   },

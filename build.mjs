@@ -7,7 +7,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { Script } from 'node:vm';
 
 // 脚本模块按这个顺序拼进同一个作用域（它们共享状态，顺序就是依赖顺序）
-const MODULES = ['core', 'assets', 'state', 'roads', 'tools', 'mesh', 'terrain', 'canals', 'trees', 'theme', 'shaders', 'render3d',
+const MODULES = ['core', 'assets', 'state', 'roads', 'tools', 'mesh', 'terrain', 'canals', 'trees', 'theme', 'sky', 'shaders', 'render3d',
   'plan2d', 'loop', 'input', 'topbar', 'palette', 'workshop', 'meter', 'seed', 'boot'];
 const read = p => readFileSync(new URL(p, import.meta.url), 'utf8').replace(/\n+$/, '') + '\n';
 

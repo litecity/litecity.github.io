@@ -56,7 +56,9 @@ button,input,select,textarea{font:inherit;color:inherit}
 .stage.shopping{grid-template-columns:minmax(250px,310px) 1fr 1fr}
 .pane{position:relative;border:1px solid var(--line);border-radius:6px;overflow:hidden;min-height:0;min-width:0;background:var(--paper)}
 .pane canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
-.tag{position:absolute;left:8px;top:8px;font-family:var(--f-num);font-weight:600;letter-spacing:.08em;font-size:12px;
+.ptop{position:absolute;left:8px;top:8px;display:flex;gap:6px;align-items:center;pointer-events:none;z-index:2}
+.ptop .btn{pointer-events:auto;padding:1px 8px;font-size:12px}
+.tag{font-family:var(--f-num);font-weight:600;letter-spacing:.08em;font-size:12px;
   background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:2px 8px;pointer-events:none}
 .hint{position:absolute;left:8px;right:8px;bottom:8px;font-size:12.5px;color:var(--ink);pointer-events:none;
   background:color-mix(in srgb,var(--panel) 86%,transparent);border-radius:4px;padding:4px 8px;width:fit-content;max-width:calc(100% - 16px)}
@@ -66,9 +68,9 @@ button,input,select,textarea{font:inherit;color:inherit}
 .edge.on{opacity:1;background:color-mix(in srgb,var(--panel) 45%,transparent)}
 .shopping .edge,.nomouse .edge{display:none}
 @media (hover:none){.edge{display:none}}
-.fx{position:absolute;right:8px;top:8px;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:2px 10px;align-items:center;max-width:calc(100% - 110px);font-size:12.5px;
+.fx{position:absolute;right:8px;top:8px;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:2px 10px;align-items:center;max-width:calc(100% - 170px);font-size:12.5px;
   background:color-mix(in srgb,var(--panel) 86%,transparent);border:1px solid var(--line);border-radius:4px;padding:3px 8px}
-.fx label{display:flex;align-items:center;gap:4px;white-space:nowrap} .fx input[type=range]{width:84px}
+.fx label{display:flex;align-items:center;gap:4px;white-space:nowrap} .fx input[type=range]{width:84px} .fx output{font-family:var(--f-num);font-variant-numeric:tabular-nums;min-width:2.6em}
 .shopping .fx{display:none}
 .nogl{position:absolute;inset:0;display:grid;place-items:center;padding:20px;text-align:center;color:var(--mute)}
 
@@ -132,4 +134,13 @@ button,input,select,textarea{font:inherit;color:inherit}
   .meter{display:none}
   .brand small{display:none}
   .hint{font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+}
+
+/* 收起一侧：另一侧占满 */
+.stage.only2 #p3,.stage.only3 #p2{display:none}
+.stage.only2,.stage.only3{grid-template-columns:1fr}
+.stage.shopping.only2,.stage.shopping.only3{grid-template-columns:minmax(250px,310px) 1fr}
+@media (max-width:760px){
+  .stage.only2,.stage.only3{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr)}
+  .stage.shopping.only2,.stage.shopping.only3{grid-template-columns:1fr;grid-template-rows:minmax(0,1.25fr) minmax(0,1fr)}
 }

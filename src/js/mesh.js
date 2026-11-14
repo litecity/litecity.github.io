@@ -71,7 +71,7 @@ function dashes(m, pts, off, y, col, d0, d1, yf) {
 const CONC = [152, 156, 160], TH_T = 6.4;                                         // 混凝土色、隧道净高
 let lampN = 0, tunSeg = { a: new Float32Array(192), b: new Float32Array(192), n: 0 };
 function emitRoad(m, r) {
-  const pts = roadPts(r), hw = r.w / 2, walk = hex2rgb(T.walk), road = hex2rgb(T.road), mark = hex2rgb(T.mark), white = [232, 236, 240];
+  const pts = roadPts(r), hw = r.w / 2, walk = hex2rgb(W.walk), road = hex2rgb(W.road), mark = hex2rgb(W.mark), white = [232, 236, 240];
   const yf = r.h ? p => hAt(r.h, p.t) : null, L = r.h ? 0.35 : lift(), ya = r.h ? r.h[0] : null, yb = r.h ? r.h[r.h.length - 1] : null;
   if (r.m === 2) return emitTunnel(m, r, pts, yf);
   ribbon(m, pts, hw + 1.5, L + 0.06, walk, 255, yf); ribbon(m, pts, hw, L + 0.14, road, 255, yf);
@@ -88,7 +88,7 @@ function emitRoad(m, r) {
     for (let d = 22; d < pts.len - 18; d += 44) { const p = atDist(pts, d), g = H(p.x, p.z), top = Y(p) + L - 1.3; if (top - g > 2.5) emitPart(m, { s: 'box', x: p.x, z: p.z, y: g - 2, w: Math.min(hw * 1.4, 7), d: 2.2, h: top - g + 2, r: Math.atan2(p.tx, -p.tz) / D2R }, ID_TF, CONC); }
   }
   // 路灯：每 34 m 一盏，左右交替；灯头是不受光照影响的发光面
-  const pole = [72, 78, 86], glow = T.night ? hex2rgb(T.lit) : [236, 240, 242]; let sg = 1;
+  const pole = [72, 78, 86], glow = hex2rgb(W.lit); let sg = 1;
   for (let d = (je && je.a ? je.a + 9 : 12); d < pts.len - (je && je.b ? je.b + 9 : 12) && lampN < 1500; d += 34, sg = -sg, lampN++) {
     const p = atDist(pts, d), y = Y(p) + L, nx = -p.tz * sg, nz = p.tx * sg, at = k => [p.x + nx * k, p.z + nz * k], rot = Math.atan2(p.tx, -p.tz) / D2R, P = at(hw + 0.9), A = at(hw), G = at(hw - 0.7);
     emitPart(m, { s: 'box', x: P[0], z: P[1], y, w: 0.24, d: 0.24, h: 6.6 }, ID_TF, pole);
@@ -98,7 +98,7 @@ function emitRoad(m, r) {
 }
 // 隧道：路面、两侧内壁、拱顶和一条灯带。面是双面的，从洞口能看进去；路口处墙留出开口，由圆形的路口大厅接上
 function emitTunnel(m, r, pts, yf) {
-  const hw = r.w / 2, wi = hw + 0.8, road = hex2rgb(T.road), mark = hex2rgb(T.mark), wallc = T.night ? [70, 74, 80] : [176, 178, 176], roofc = T.night ? [52, 55, 60] : [128, 131, 134], lamp = hex2rgb(T.lit);
+  const hw = r.w / 2, wi = hw + 0.8, road = hex2rgb(W.road), mark = hex2rgb(W.mark), wallc = [176, 178, 176], roofc = [128, 131, 134], lamp = hex2rgb(W.lit);
   const hall = J.hall.get(r) || { a: 0, b: 0 }, je = J.ends.get(r);
   ribbon(m, pts, wi, 0.1, road, 255, yf); ribbon(m, pts, wi, TH_T, roofc, 255, yf); ribbon(m, pts, 0.4, TH_T - 0.06, lamp, 240, yf);
   dashes(m, pts, 0, 0.18, mark, je && je.a ? je.a + 5 : 3, je && je.b ? je.b + 5 : 0, yf);
@@ -125,7 +125,7 @@ function tunnelHoles() {
   tunSeg.n = n;
 }
 function emitJunctions(m) {
-  const road = hex2rgb(T.road), white = [232, 236, 240];
+  const road = hex2rgb(W.road), white = [232, 236, 240];
   for (const n of J.nodes) {
     const L = n.y != null ? 0.35 : lift();
     disc(m, n.x, n.z, n.R + 0.5, L + 0.25, road, 255, n.y);
@@ -137,8 +137,8 @@ function emitJunctions(m) {
       }
     }
     if (!n.tun) continue;                                                      // 隧道里的路口：一个圆形大厅，墙在每条路的方向上留门
-    const rho = n.rho, y = n.y, wallc = T.night ? [70, 74, 80] : [176, 178, 176], roofc = T.night ? [52, 55, 60] : [128, 131, 134], far = [n.x, y - 400, n.z];
-    disc(m, n.x, n.z, rho, 0.08, road, 255, y); disc(m, n.x, n.z, rho, TH_T, roofc, 255, y); disc(m, n.x, n.z, 2.2, TH_T - 0.06, hex2rgb(T.lit), 240, y);
+    const rho = n.rho, y = n.y, wallc = [176, 178, 176], roofc = [128, 131, 134], far = [n.x, y - 400, n.z];
+    disc(m, n.x, n.z, rho, 0.08, road, 255, y); disc(m, n.x, n.z, rho, TH_T, roofc, 255, y); disc(m, n.x, n.z, 2.2, TH_T - 0.06, hex2rgb(W.lit), 240, y);
     const gaps = n.arms.map(a => { const pts = roadPts(a.r), p = a.e === 'a' ? pts[0] : pts[pts.length - 1], sg = a.e === 'a' ? 1 : -1; return { th: Math.atan2(p.tz * sg, p.tx * sg), al: Math.asin(Math.min(0.99, (a.r.w / 2 + 0.8) / rho)) }; }).sort((p, q) => p.th - q.th);
     gaps.forEach((g, i) => {
       const nx = gaps[(i + 1) % gaps.length]; let t0 = g.th + g.al, t1 = nx.th - nx.al; if (i === gaps.length - 1) t1 += TAU; if (t1 - t0 < 0.02) return;

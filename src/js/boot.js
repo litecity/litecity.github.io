@@ -13,4 +13,4 @@ function boot() {
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(req);
 }
 boot();
-window.LiteCity = { state: S, camera: camCity, redraw: req };              // 调试和脚本用的入口
+window.LiteCity = { state: S, camera: camCity, redraw: req, sky: skyState };              // 调试和脚本用的入口

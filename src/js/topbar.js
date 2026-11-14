@@ -14,6 +14,13 @@ addEventListener('keydown', e => {
 addEventListener('keyup', e => { if (e.key === ' ') space = false; });
 $('#tools').addEventListener('click', e => { const b = e.target.closest('button'); if (b && !shop.open) setTool(b.dataset.tool); });
 $('#rotBtn').onclick = () => rotate(1);
+function setSolo(v) {                                                            // 收起一侧面板，另一侧占满；再点一次还原
+  const st = $('#stage'), cur = st.classList.contains('only2') ? '2' : st.classList.contains('only3') ? '3' : '', nv = cur === v ? '' : v;
+  st.classList.toggle('only2', nv === '2'); st.classList.toggle('only3', nv === '3');
+  for (const k of ['2', '3']) { $('#max' + k).textContent = nv === k ? '还原' : '放大'; $('#max' + k).setAttribute('aria-pressed', nv === k); }
+  setEdge(null); req();
+}
+$('#max2').onclick = () => setSolo('2'); $('#max3').onclick = () => setSolo('3');
 $('#roadLv').onchange = req;
 $('#undoBtn').onclick = () => { if (!shop.open) undo(); };
 $('#snapRoad').onchange = e => { ui.snap = e.target.checked; req(); };

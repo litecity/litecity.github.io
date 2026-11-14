@@ -19,7 +19,7 @@ function buildTrees() {
   const W = clamp(Math.round((500 + c.dist * 0.9) / CELL), 30, 150), ci = Math.round((c.tx + HALF) / CELL), cj = Math.round((c.tz + HALF) / CELL);
   trSt = { ci, cj, W, d: c.dist, far: c.dist > 2800 };
   if (TR && TH && !shop.open && !trSt.far) {
-    const k = T.night ? 0.45 : 1, cols = [[58, 122, 74], [74, 142, 84], [46, 104, 66], [92, 150, 80]].map(q => q.map(v => v * k)), wet = terr.wet; let cnt = 0;
+    const k = 1, cols = [[58, 122, 74], [74, 142, 84], [46, 104, 66], [92, 150, 80]].map(q => q.map(v => v * k)), wet = terr.wet; let cnt = 0;
     out: for (let j = Math.max(0, cj - W); j <= Math.min(GN - 1, cj + W); j++) for (let i = Math.max(0, ci - W); i <= Math.min(GN - 1, ci + W); i++) {
       const o = j * VN + i, d = TR[o]; if (!d || (wet && wet[o] > 128)) continue;
       const n = Math.floor(d / 255 * 1.7 + hsh(i, j, 7));
@@ -56,11 +56,6 @@ $('#tr-mode').onclick = () => setTmode('tree');
 $('#tr-clear').onclick = () => { if (!TR) return; TR = null; terrChanged(); saveTerr(); $('#t-status').textContent = '树已全部清除。'; };
 $('#tr-rad').addEventListener('input', req);
 setInterval(() => { if (!document.hidden && (fx.cloud || (!shop.open && TH && $('#tw-anim').checked && hasWater()))) req(); }, 90);   // 云在动或水在闪时约每秒 11 帧；都关掉或切走标签页就停
-function syncFx() { $('#fx-sh').checked = fx.shadow; $('#fx-cl').checked = fx.cloud; $('#fx-hr').value = fx.hour; }
-function saveFx() { try { localStorage.setItem('litecity-fx', JSON.stringify(fx)); } catch (e) {} req(); }
-$('#fx-sh').onchange = e => { fx.shadow = e.target.checked; shadowSize(fx.shadow ? SHSZ : 1); saveFx(); };
-$('#fx-cl').onchange = e => { fx.cloud = e.target.checked; saveFx(); };
-$('#fx-hr').oninput = e => { fx.hour = +e.target.value; saveFx(); };
 $('#cn-mode').onclick = () => setTmode('canal');
 $('#cn-clear').onclick = () => { if (!S.env.canals.some(k => k.wet)) return; pushUndoTerr(); for (const k of S.env.canals) k.wet = 0; terrChanged(); save(); $('#t-status').textContent = '渠水已排干，渠道本身还在。'; };
 $('#ws-clear').onclick = () => { if (!S.env.src.length) return; pushUndo(); S.env.src = []; terrChanged(); save(); updateSrcRead(); };

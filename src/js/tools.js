@@ -106,7 +106,7 @@ function setHint() {
   $('#hint2').textContent = shop.open ? '车间平面：点选并拖动部件。下方是正面（朝路的一侧）。' : ui.tool === 'terrain' && ui.tmode === 'tree' ? '按住拖动刷树；勾“擦除”则刷掉。远处显示为林地的深色，镜头拉近才出现一棵棵树。' : ui.tool === 'terrain' && ui.tmode === 'canal' ? '像修路一样画沟渠：直线拖出或点两下，自由曲线点三下（顶栏“画法”）。渠底从起点向终点一路下降，上游陡、下游缓。' : ui.tool === 'terrain' && ui.tmode === 'water' ? '点一下放水点：与它连通、低于水面海拔的地方会淹成一片平的水面。再点水点可删除。按 E 取光标处海拔 +5 m。' : H[ui.tool];
   $('#tag2').textContent = shop.open ? '车间 · 俯视' : '平面图 · 俯视';
   $('#tag3').textContent = shop.open ? '车间 · 3D 预览' : '实景 · 3D';
-  $('#hint3').textContent = ui.tool === 'terrain' && !shop.open ? (ui.tmode === 'brush' || ui.tmode === 'tree' ? '左键拖动刷 · 右键拖动旋转 · Shift 拖动平移' : '点击落点 · 拖动旋转 · 滚轮缩放 · Shift 或右键拖动平移') : '拖动旋转 · 滚轮缩放 · 鼠标移到四边可前进后退左右走 · 双击前往';
+  $('#hint3').textContent = ui.tool === 'terrain' && !shop.open ? (ui.tmode === 'brush' || ui.tmode === 'tree' ? '左键拖动刷 · 右键拖动旋转 · Shift 拖动平移' : '点击落点 · 拖动旋转 · 滚轮缩放 · Shift 或右键拖动平移') : '拖动旋转（贴地后继续上抬可仰视）· 滚轮缩放 · 鼠标移到四边可走动 · 双击前往';
 }
 function rotate(dir) {
   const st = 15 * D2R * dir;

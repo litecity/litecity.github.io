@@ -1,17 +1,9 @@
-// ── 光影设置：阴影、云动、时辰（记在浏览器里）
-const fx = { shadow: true, cloud: true, hour: 14.5 }, SHSZ = 2048, sh = { prog: null, tex: null, fbo: null, uVP: null, size: 0 };
-try { Object.assign(fx, JSON.parse(localStorage.getItem('litecity-fx') || '{}')); } catch (e) {}
-fx.hour = clamp(+fx.hour || 14.5, 6, 18); let cloudT = 40, lastCT = 0;
+/* ───────── 3D 渲染：阴影图、相机、拾取、网格组装、出图 ───────── */
 function shadowSize(n) {                                                         // 关掉光影时把阴影图缩成 1×1，显存还回去
   if (!gl || sh.size === n) return; sh.size = n;
   gl.bindTexture(gl.TEXTURE_2D, sh.tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT16, n, n, 0, gl.DEPTH_COMPONENT, gl.UNSIGNED_SHORT, null);
   for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE], [gl.TEXTURE_COMPARE_MODE, gl.COMPARE_REF_TO_TEXTURE], [gl.TEXTURE_COMPARE_FUNC, gl.LEQUAL]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
   gl.bindFramebuffer(gl.FRAMEBUFFER, sh.fbo); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, sh.tex, 0); gl.drawBuffers([gl.NONE]); gl.readBuffer(gl.NONE); gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-}
-function sunState() {                                                            // 时辰 → 太阳方向和颜色：早晚低而偏橙，正午高而白
-  const a = (fx.hour - 6) / 12 * Math.PI, el = 0.16 + 0.95 * Math.sin(a), ce = Math.cos(el), d = [Math.cos(a) * ce, Math.sin(el), 0.42 * ce], l = Math.hypot(d[0], d[1], d[2]);
-  const dir = d.map(v => v / l), t = clamp((dir[1] - 0.15) / 0.45, 0, 1);
-  return { dir, col: T.night ? [0.62, 0.72, 1].map(v => v * 0.85) : [1, 0.6 + 0.37 * t, 0.34 + 0.58 * t] };
 }
 const mul4 = (A, B) => { const o = new Float32Array(16); for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) { let v = 0; for (let k = 0; k < 4; k++) v += A[k * 4 + r] * B[c * 4 + k]; o[c * 4 + r] = v; } return o; };
 function shadowPass(sun, c) {                                                    // 从太阳方向把镜头附近的地形、建筑、树画进一张深度图
@@ -43,7 +35,7 @@ function initGL() {
   for (const n of ['uVP', 'uSun', 'uSunC', 'uSky', 'uGrid', 'uEye', 'uWin', 'uLit', 'uWater', 'uSand', 'uRock', 'uT', 'uTc', 'uFx', 'uShTex', 'uSh', 'uLVP', 'uTa', 'uTb', 'uTn', 'uAmb', 'uAlpha', 'uFog', 'uNight']) U[n] = gl.getUniformLocation(prog, n);
   skyProg = gl.createProgram(); gl.attachShader(skyProg, sh_(gl.VERTEX_SHADER, SKY_VS)); gl.attachShader(skyProg, sh_(gl.FRAGMENT_SHADER, SKY_FS)); gl.linkProgram(skyProg);
   if (!gl.getProgramParameter(skyProg, gl.LINK_STATUS)) console.error(gl.getProgramInfoLog(skyProg));
-  for (const n of ['uR', 'uUp', 'uF', 'uZen', 'uHor', 'uCloud', 'uEye', 'uSun', 'uSunC', 'uTan', 'uAsp', 'uTc', 'uNight']) SU[n] = gl.getUniformLocation(skyProg, n);
+  for (const n of ['uR', 'uUp', 'uF', 'uZen', 'uHor', 'uCloud', 'uEye', 'uSunD', 'uMoonD', 'uPh', 'uSunC', 'uTan', 'uAsp', 'uTc', 'uNight']) SU[n] = gl.getUniformLocation(skyProg, n);
   vaoSky = gl.createVertexArray();
   sh.prog = gl.createProgram(); gl.attachShader(sh.prog, sh_(gl.VERTEX_SHADER, SH_VS)); gl.attachShader(sh.prog, sh_(gl.FRAGMENT_SHADER, SH_FS)); gl.linkProgram(sh.prog); sh.uVP = gl.getUniformLocation(sh.prog, 'uVP');
   sh.tex = gl.createTexture(); sh.fbo = gl.createFramebuffer(); shadowSize(fx.shadow ? SHSZ : 1);
@@ -58,10 +50,11 @@ function initGL() {
   gl.enable(gl.DEPTH_TEST); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 }
 const camCity = { tx: 0, ty: 0, tz: -30, yaw: 0.55, pitch: 0.62, dist: 430 }, camShop = { tx: 0, ty: 6, tz: 0, yaw: 0.7, pitch: 0.42, dist: 60 };
-const cam = () => shop.open ? camShop : camCity;
+const cam = () => shop.open ? camShop : camCity, PMIN = 0.06, PUP = -1.4;
 function camBasis(c) {
-  const cp = Math.cos(c.pitch), sp = Math.sin(c.pitch), sy = Math.sin(c.yaw), cy = Math.cos(c.yaw);
-  return { eye: [c.tx + c.dist * cp * sy, c.ty + c.dist * sp, c.tz + c.dist * cp * cy], f: [-cp * sy, -sp, -cp * cy], r: [cy, 0, -sy], u: [-sy * sp, cp, -cy * sp] };
+  // 俯角不小于 PMIN 时，镜头绕地面上的目标点转；再往上抬，镜头就停在贴地的位置不动，改成原地抬头（仰视）
+  const pe = Math.max(c.pitch, PMIN), cp = Math.cos(c.pitch), sp = Math.sin(c.pitch), sy = Math.sin(c.yaw), cy = Math.cos(c.yaw), ce = Math.cos(pe);
+  return { eye: [c.tx + c.dist * ce * sy, c.ty + c.dist * Math.sin(pe) + (c.lift || 0), c.tz + c.dist * ce * cy], f: [-cp * sy, -sp, -cp * cy], r: [cy, 0, -sy], u: [-sy * sp, cp, -cy * sp] };
 }
 const FOV = 42 * D2R;
 function rayAt(ev) {
@@ -99,7 +92,7 @@ function fit(c) { const dpr = Math.min(devicePixelRatio || 1, 2), w = Math.round
 
 function buildStatic() {
   const m = stat; m.n = 0;
-  const G = 40000, gc = hex2rgb(T.ground);
+  const G = 40000, gc = hex2rgb(W.ground);
   const gq = (x0, z0, x1, z1) => { tri(m, [x0, 0, z0], [x1, 0, z0], [x1, 0, z1], gc, 0); tri(m, [x0, 0, z0], [x1, 0, z1], [x0, 0, z1], gc, 0); };
   if (shop.open || !TH) gq(-G, -G, G, G);                                    // 有地形时，底面和四周岩壁归地形那一遍画
   if (shop.open) { emitAsset(m, shop.draft, { x: 0, z: 0, r: 0 }); }
@@ -108,7 +101,7 @@ function buildStatic() {
 }
 function buildDyn() {
   const m = dyn; m.n = 0;
-  const acc = hex2rgb(T.accent), sel = hex2rgb(T.sel), k = cam().dist * 0.016;
+  const acc = hex2rgb(W.accent), sel = hex2rgb(W.sel), k = cam().dist * 0.016;
   if (shop.open) {
     const f = fp(shop.draft), z = f.d / 2 + 1.5;                              // 正面指示
     tri(m, [-1.5, 0.1, z], [1.5, 0.1, z], [0, 0.1, z + 3], acc, 255);
@@ -120,7 +113,7 @@ function buildDyn() {
     }
   } else {
     const L = lift() + 0.4;
-    if (S.env.water != null) { const y = S.env.water - 0.05, G = 40000, wc = hex2rgb(T.water); tri(m, [-G, y, -G], [G, y, -G], [G, y, G], wc, 204); tri(m, [-G, y, -G], [G, y, G], [-G, y, G], wc, 204); }
+    if (S.env.water != null) { const y = S.env.water - 0.05, G = 40000, wc = hex2rgb(W.water); tri(m, [-G, y, -G], [G, y, -G], [G, y, G], wc, 204); tri(m, [-G, y, -G], [G, y, G], [-G, y, G], wc, 204); }
     if (ui.tool === 'terrain') for (const q of S.env.src) emitPart(m, { s: 'cone', x: q.x, z: q.z, y: Math.max(q.h, H(q.x, q.z)) + k * 2.2, w: k * 1.6, d: k * 1.6, h: -k * 2.2 }, ID_TF, sel);   // 水点标记：倒锥指向水面
     if (ui.tool === 'terrain' && (ui.tmode === 'brush' || ui.tmode === 'tree') && ui.hover) {
       const r = ui.tmode === 'tree' ? numIn('tr-rad', 200, 20, 4000) : numIn('tb-rad', 150, 20, 4000), t = Math.max(1, k * 0.2), h = ui.hover;
@@ -160,7 +153,9 @@ function draw3() {
   fit(c3); gl.viewport(0, 0, c3.width, c3.height);
   if (!shop.open) {
     const c = camCity; c.ty = H(c.tx, c.tz);
-    if (TH) for (let k = 0; k < 80; k++) {                                     // 镜头和视线都不许钻进山里：被挡就抬高俯角
+    c.lift = 0;
+    if (c.pitch < PMIN) { const e = camBasis(c).eye; c.lift = Math.max(0, H(e[0], e[2]) + 1.8 - e[1]); }   // 仰视时人站在地上：眼睛至少离地 1.8 m
+    else if (TH) for (let k = 0; k < 80; k++) {                                     // 镜头和视线都不许钻进山里：被挡就抬高俯角
       const e = camBasis(c).eye; let ok = true;
       for (const t of [1, 0.8, 0.6, 0.4, 0.2]) { const x = c.tx + (e[0] - c.tx) * t, z = c.tz + (e[2] - c.tz) * t; if (c.ty + (e[1] - c.ty) * t < H(x, z) + Math.max(2, c.dist * 0.03) * t) { ok = false; break; } }
       if (ok || c.pitch >= 1.5) break; c.pitch = Math.min(1.5, c.pitch + 0.015);
@@ -172,20 +167,20 @@ function draw3() {
   const Pm = [f / asp, 0, 0, 0, 0, f, 0, 0, 0, 0, (far + near) / (near - far), -1, 0, 0, 2 * far * near / (near - far), 0];
   const VP = new Float32Array(16);
   for (let col = 0; col < 4; col++) for (let r = 0; r < 4; r++) { let s = 0; for (let k = 0; k < 4; k++) s += Pm[k * 4 + r] * V[col * 4 + k]; VP[col * 4 + r] = s; }
-  const v3 = h => hex2rgb(h).map(x => x / 255), sky = v3(T.sky), sun = sunState();
-  const shd = fx.shadow ? shadowPass(sun.dir, c) : null; gl.viewport(0, 0, c3.width, c3.height);
+  const v3 = h => hex2rgb(h).map(x => x / 255), st = skyState(), sky = st.hor;
+  const shd = fx.shadow ? shadowPass(st.dir, c) : null; gl.viewport(0, 0, c3.width, c3.height);
   gl.clearColor(sky[0], sky[1], sky[2], 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   gl.disable(gl.DEPTH_TEST); gl.depthMask(false); gl.disable(gl.BLEND); gl.useProgram(skyProg); gl.bindVertexArray(vaoSky);
   gl.uniform3fv(SU.uR, b.r); gl.uniform3fv(SU.uUp, b.u); gl.uniform3fv(SU.uF, b.f); gl.uniform3fv(SU.uEye, e); gl.uniform1f(SU.uTan, Math.tan(FOV / 2)); gl.uniform1f(SU.uAsp, asp);
-  gl.uniform3fv(SU.uSun, sun.dir); gl.uniform3fv(SU.uSunC, sun.col); gl.uniform1f(SU.uTc, cloudT); gl.uniform1f(SU.uNight, T.night ? 1 : 0);
-  gl.uniform3fv(SU.uZen, v3(T.zenith)); gl.uniform3fv(SU.uHor, sky); gl.uniform3fv(SU.uCloud, v3(T.cloud));
+  gl.uniform3fv(SU.uSunD, st.sun); gl.uniform3fv(SU.uMoonD, st.moon); gl.uniform1f(SU.uPh, st.ph); gl.uniform3fv(SU.uSunC, st.col); gl.uniform1f(SU.uTc, cloudT); gl.uniform1f(SU.uNight, st.night);
+  gl.uniform3fv(SU.uZen, st.zen); gl.uniform3fv(SU.uHor, sky); gl.uniform3fv(SU.uCloud, st.cloud);
   gl.drawArrays(gl.TRIANGLES, 0, 3); gl.enable(gl.DEPTH_TEST); gl.depthMask(true);
   gl.useProgram(prog); gl.uniformMatrix4fv(U.uVP, false, VP);
-  gl.uniform3fv(U.uSun, sun.dir); gl.uniform3fv(U.uSunC, fx.shadow ? sun.col : [1, 1, 1]); gl.uniform3fv(U.uRock, v3(T.rock)); gl.uniform1f(U.uTc, cloudT);
+  gl.uniform3fv(U.uSun, st.dir); gl.uniform3fv(U.uSunC, st.col); gl.uniform3fv(U.uRock, v3(W.rock)); gl.uniform1f(U.uTc, cloudT);
   gl.uniform1f(U.uFx, shd ? 1 : 0); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, sh.tex); gl.uniform1i(U.uSh, 0);
-  if (shd) { gl.uniformMatrix4fv(U.uLVP, false, shd.LVP); gl.uniform1f(U.uShTex, shd.tex); } gl.uniform3fv(U.uSky, sky); gl.uniform3fv(U.uGrid, v3(T.ggrid)); gl.uniform3fv(U.uEye, e);
-  gl.uniform3fv(U.uWin, v3(T.win)); gl.uniform3fv(U.uLit, v3(T.lit)); gl.uniform3fv(U.uWater, v3(T.water)); gl.uniform3fv(U.uSand, v3(T.sand));
-  gl.uniform1f(U.uAmb, (T.night ? 0.42 : 0.58) - (fx.shadow ? 0.1 : 0)); gl.uniform1f(U.uNight, T.night ? 1 : 0); gl.uniform1f(U.uT, (performance.now() / 1000) % 3600);
+  if (shd) { gl.uniformMatrix4fv(U.uLVP, false, shd.LVP); gl.uniform1f(U.uShTex, shd.tex); } gl.uniform3fv(U.uSky, sky); gl.uniform3fv(U.uGrid, v3(W.ggrid)); gl.uniform3fv(U.uEye, e);
+  gl.uniform3fv(U.uWin, v3(W.win)); gl.uniform3fv(U.uLit, v3(W.lit)); gl.uniform3fv(U.uWater, v3(W.water)); gl.uniform3fv(U.uSand, v3(W.sand));
+  gl.uniform1f(U.uAmb, st.amb); gl.uniform1f(U.uNight, st.night); gl.uniform1f(U.uT, (performance.now() / 1000) % 3600);
   gl.uniform1i(U.uTn, shop.open ? 0 : tunSeg.n); gl.uniform4fv(U.uTa, tunSeg.a); gl.uniform4fv(U.uTb, tunSeg.b); gl.uniform1f(U.uFog, Math.max(26000, c.dist * 8));
   gl.disable(gl.BLEND); gl.uniform1f(U.uAlpha, 1);
   const selR = ui.sel && ui.sel.k === 'road' ? S.roads[ui.sel.i] : null, xray = !shop.open && ((ui.tool === 'road' && $('#roadLv').value === '2') || (selR && selR.m === 2));

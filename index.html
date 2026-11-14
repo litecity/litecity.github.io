@@ -66,7 +66,9 @@ button,input,select,textarea{font:inherit;color:inherit}
 .stage.shopping{grid-template-columns:minmax(250px,310px) 1fr 1fr}
 .pane{position:relative;border:1px solid var(--line);border-radius:6px;overflow:hidden;min-height:0;min-width:0;background:var(--paper)}
 .pane canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
-.tag{position:absolute;left:8px;top:8px;font-family:var(--f-num);font-weight:600;letter-spacing:.08em;font-size:12px;
+.ptop{position:absolute;left:8px;top:8px;display:flex;gap:6px;align-items:center;pointer-events:none;z-index:2}
+.ptop .btn{pointer-events:auto;padding:1px 8px;font-size:12px}
+.tag{font-family:var(--f-num);font-weight:600;letter-spacing:.08em;font-size:12px;
   background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:2px 8px;pointer-events:none}
 .hint{position:absolute;left:8px;right:8px;bottom:8px;font-size:12.5px;color:var(--ink);pointer-events:none;
   background:color-mix(in srgb,var(--panel) 86%,transparent);border-radius:4px;padding:4px 8px;width:fit-content;max-width:calc(100% - 16px)}
@@ -76,9 +78,9 @@ button,input,select,textarea{font:inherit;color:inherit}
 .edge.on{opacity:1;background:color-mix(in srgb,var(--panel) 45%,transparent)}
 .shopping .edge,.nomouse .edge{display:none}
 @media (hover:none){.edge{display:none}}
-.fx{position:absolute;right:8px;top:8px;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:2px 10px;align-items:center;max-width:calc(100% - 110px);font-size:12.5px;
+.fx{position:absolute;right:8px;top:8px;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:2px 10px;align-items:center;max-width:calc(100% - 170px);font-size:12.5px;
   background:color-mix(in srgb,var(--panel) 86%,transparent);border:1px solid var(--line);border-radius:4px;padding:3px 8px}
-.fx label{display:flex;align-items:center;gap:4px;white-space:nowrap} .fx input[type=range]{width:84px}
+.fx label{display:flex;align-items:center;gap:4px;white-space:nowrap} .fx input[type=range]{width:84px} .fx output{font-family:var(--f-num);font-variant-numeric:tabular-nums;min-width:2.6em}
 .shopping .fx{display:none}
 .nogl{position:absolute;inset:0;display:grid;place-items:center;padding:20px;text-align:center;color:var(--mute)}
 
@@ -142,6 +144,15 @@ button,input,select,textarea{font:inherit;color:inherit}
   .meter{display:none}
   .brand small{display:none}
   .hint{font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+}
+
+/* 收起一侧：另一侧占满 */
+.stage.only2 #p3,.stage.only3 #p2{display:none}
+.stage.only2,.stage.only3{grid-template-columns:1fr}
+.stage.shopping.only2,.stage.shopping.only3{grid-template-columns:minmax(250px,310px) 1fr}
+@media (max-width:760px){
+  .stage.only2,.stage.only3{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr)}
+  .stage.shopping.only2,.stage.shopping.only3{grid-template-columns:1fr;grid-template-rows:minmax(0,1.25fr) minmax(0,1fr)}
 }
 </style>
 
@@ -278,14 +289,14 @@ button,input,select,textarea{font:inherit;color:inherit}
     </aside>
     <section class="pane" id="p2">
       <canvas id="c2" aria-label="平面图"></canvas>
-      <div class="tag" id="tag2">平面图 · 俯视</div>
+      <div class="ptop"><div class="tag" id="tag2">平面图 · 俯视</div><button class="btn sm" id="max2" aria-pressed="false" title="收起实景，只看平面图">放大</button></div>
       <div class="hint" id="hint2"></div>
     </section>
     <section class="pane" id="p3">
       <canvas id="c3" aria-label="三维实景"></canvas>
-      <div class="tag" id="tag3">实景 · 3D</div>
+      <div class="ptop"><div class="tag" id="tag3">实景 · 3D</div><button class="btn sm" id="max3" aria-pressed="false" title="收起平面图，只看实景">放大</button></div>
       <div class="edge e-t" aria-hidden="true">▲</div><div class="edge e-b" aria-hidden="true">▼</div><div class="edge e-l" aria-hidden="true">◀</div><div class="edge e-r" aria-hidden="true">▶</div>
-      <div class="fx" id="fx"><label><input type="checkbox" id="fx-sh"> 光影</label><label><input type="checkbox" id="fx-cl"> 云动</label><label>时辰 <input type="range" id="fx-hr" min="6" max="18" step="0.25" aria-label="时辰"></label></div>
+      <div class="fx" id="fx"><label><input type="checkbox" id="fx-sh"> 光影</label><label><input type="checkbox" id="fx-cl"> 云动</label><label><input type="checkbox" id="fx-lt"> 本地时间</label><label><input type="range" id="fx-hr" min="0" max="24" step="0.25" aria-label="时辰"> <output id="fx-tm" for="fx-hr"></output></label></div>
       <div class="hint" id="hint3">拖动旋转 · 滚轮缩放 · Shift 或右键拖动平移</div>
     </section>
   </main>
@@ -651,7 +662,7 @@ function setHint() {
   $('#hint2').textContent = shop.open ? '车间平面：点选并拖动部件。下方是正面（朝路的一侧）。' : ui.tool === 'terrain' && ui.tmode === 'tree' ? '按住拖动刷树；勾“擦除”则刷掉。远处显示为林地的深色，镜头拉近才出现一棵棵树。' : ui.tool === 'terrain' && ui.tmode === 'canal' ? '像修路一样画沟渠：直线拖出或点两下，自由曲线点三下（顶栏“画法”）。渠底从起点向终点一路下降，上游陡、下游缓。' : ui.tool === 'terrain' && ui.tmode === 'water' ? '点一下放水点：与它连通、低于水面海拔的地方会淹成一片平的水面。再点水点可删除。按 E 取光标处海拔 +5 m。' : H[ui.tool];
   $('#tag2').textContent = shop.open ? '车间 · 俯视' : '平面图 · 俯视';
   $('#tag3').textContent = shop.open ? '车间 · 3D 预览' : '实景 · 3D';
-  $('#hint3').textContent = ui.tool === 'terrain' && !shop.open ? (ui.tmode === 'brush' || ui.tmode === 'tree' ? '左键拖动刷 · 右键拖动旋转 · Shift 拖动平移' : '点击落点 · 拖动旋转 · 滚轮缩放 · Shift 或右键拖动平移') : '拖动旋转 · 滚轮缩放 · 鼠标移到四边可前进后退左右走 · 双击前往';
+  $('#hint3').textContent = ui.tool === 'terrain' && !shop.open ? (ui.tmode === 'brush' || ui.tmode === 'tree' ? '左键拖动刷 · 右键拖动旋转 · Shift 拖动平移' : '点击落点 · 拖动旋转 · 滚轮缩放 · Shift 或右键拖动平移') : '拖动旋转（贴地后继续上抬可仰视）· 滚轮缩放 · 鼠标移到四边可走动 · 双击前往';
 }
 function rotate(dir) {
   const st = 15 * D2R * dir;
@@ -734,7 +745,7 @@ function dashes(m, pts, off, y, col, d0, d1, yf) {
 const CONC = [152, 156, 160], TH_T = 6.4;                                         // 混凝土色、隧道净高
 let lampN = 0, tunSeg = { a: new Float32Array(192), b: new Float32Array(192), n: 0 };
 function emitRoad(m, r) {
-  const pts = roadPts(r), hw = r.w / 2, walk = hex2rgb(T.walk), road = hex2rgb(T.road), mark = hex2rgb(T.mark), white = [232, 236, 240];
+  const pts = roadPts(r), hw = r.w / 2, walk = hex2rgb(W.walk), road = hex2rgb(W.road), mark = hex2rgb(W.mark), white = [232, 236, 240];
   const yf = r.h ? p => hAt(r.h, p.t) : null, L = r.h ? 0.35 : lift(), ya = r.h ? r.h[0] : null, yb = r.h ? r.h[r.h.length - 1] : null;
   if (r.m === 2) return emitTunnel(m, r, pts, yf);
   ribbon(m, pts, hw + 1.5, L + 0.06, walk, 255, yf); ribbon(m, pts, hw, L + 0.14, road, 255, yf);
@@ -751,7 +762,7 @@ function emitRoad(m, r) {
     for (let d = 22; d < pts.len - 18; d += 44) { const p = atDist(pts, d), g = H(p.x, p.z), top = Y(p) + L - 1.3; if (top - g > 2.5) emitPart(m, { s: 'box', x: p.x, z: p.z, y: g - 2, w: Math.min(hw * 1.4, 7), d: 2.2, h: top - g + 2, r: Math.atan2(p.tx, -p.tz) / D2R }, ID_TF, CONC); }
   }
   // 路灯：每 34 m 一盏，左右交替；灯头是不受光照影响的发光面
-  const pole = [72, 78, 86], glow = T.night ? hex2rgb(T.lit) : [236, 240, 242]; let sg = 1;
+  const pole = [72, 78, 86], glow = hex2rgb(W.lit); let sg = 1;
   for (let d = (je && je.a ? je.a + 9 : 12); d < pts.len - (je && je.b ? je.b + 9 : 12) && lampN < 1500; d += 34, sg = -sg, lampN++) {
     const p = atDist(pts, d), y = Y(p) + L, nx = -p.tz * sg, nz = p.tx * sg, at = k => [p.x + nx * k, p.z + nz * k], rot = Math.atan2(p.tx, -p.tz) / D2R, P = at(hw + 0.9), A = at(hw), G = at(hw - 0.7);
     emitPart(m, { s: 'box', x: P[0], z: P[1], y, w: 0.24, d: 0.24, h: 6.6 }, ID_TF, pole);
@@ -761,7 +772,7 @@ function emitRoad(m, r) {
 }
 // 隧道：路面、两侧内壁、拱顶和一条灯带。面是双面的，从洞口能看进去；路口处墙留出开口，由圆形的路口大厅接上
 function emitTunnel(m, r, pts, yf) {
-  const hw = r.w / 2, wi = hw + 0.8, road = hex2rgb(T.road), mark = hex2rgb(T.mark), wallc = T.night ? [70, 74, 80] : [176, 178, 176], roofc = T.night ? [52, 55, 60] : [128, 131, 134], lamp = hex2rgb(T.lit);
+  const hw = r.w / 2, wi = hw + 0.8, road = hex2rgb(W.road), mark = hex2rgb(W.mark), wallc = [176, 178, 176], roofc = [128, 131, 134], lamp = hex2rgb(W.lit);
   const hall = J.hall.get(r) || { a: 0, b: 0 }, je = J.ends.get(r);
   ribbon(m, pts, wi, 0.1, road, 255, yf); ribbon(m, pts, wi, TH_T, roofc, 255, yf); ribbon(m, pts, 0.4, TH_T - 0.06, lamp, 240, yf);
   dashes(m, pts, 0, 0.18, mark, je && je.a ? je.a + 5 : 3, je && je.b ? je.b + 5 : 0, yf);
@@ -788,7 +799,7 @@ function tunnelHoles() {
   tunSeg.n = n;
 }
 function emitJunctions(m) {
-  const road = hex2rgb(T.road), white = [232, 236, 240];
+  const road = hex2rgb(W.road), white = [232, 236, 240];
   for (const n of J.nodes) {
     const L = n.y != null ? 0.35 : lift();
     disc(m, n.x, n.z, n.R + 0.5, L + 0.25, road, 255, n.y);
@@ -800,8 +811,8 @@ function emitJunctions(m) {
       }
     }
     if (!n.tun) continue;                                                      // 隧道里的路口：一个圆形大厅，墙在每条路的方向上留门
-    const rho = n.rho, y = n.y, wallc = T.night ? [70, 74, 80] : [176, 178, 176], roofc = T.night ? [52, 55, 60] : [128, 131, 134], far = [n.x, y - 400, n.z];
-    disc(m, n.x, n.z, rho, 0.08, road, 255, y); disc(m, n.x, n.z, rho, TH_T, roofc, 255, y); disc(m, n.x, n.z, 2.2, TH_T - 0.06, hex2rgb(T.lit), 240, y);
+    const rho = n.rho, y = n.y, wallc = [176, 178, 176], roofc = [128, 131, 134], far = [n.x, y - 400, n.z];
+    disc(m, n.x, n.z, rho, 0.08, road, 255, y); disc(m, n.x, n.z, rho, TH_T, roofc, 255, y); disc(m, n.x, n.z, 2.2, TH_T - 0.06, hex2rgb(W.lit), 240, y);
     const gaps = n.arms.map(a => { const pts = roadPts(a.r), p = a.e === 'a' ? pts[0] : pts[pts.length - 1], sg = a.e === 'a' ? 1 : -1; return { th: Math.atan2(p.tz * sg, p.tx * sg), al: Math.asin(Math.min(0.99, (a.r.w / 2 + 0.8) / rho)) }; }).sort((p, q) => p.th - q.th);
     gaps.forEach((g, i) => {
       const nx = gaps[(i + 1) % gaps.length]; let t0 = g.th + g.al, t1 = nx.th - nx.al; if (i === gaps.length - 1) t1 += TAU; if (t1 - t0 < 0.02) return;
@@ -1050,7 +1061,7 @@ function buildTerrain() {
     canalWater(wet); floodSources(wet);
     if (S.env.lakes || S.env.rivers || S.env.src.length || S.env.canals.length) smoothWet(wet);
   }
-  const sea = S.env.water, cg = hex2rgb(T.ground), ck = hex2rgb(T.rock), cs = hex2rgb(T.snow), cd = hex2rgb(T.sand), cw = hex2rgb(T.water), snow0 = Math.max(140, terr.hi * 0.62);
+  const sea = S.env.water, cg = hex2rgb(W.ground), ck = hex2rgb(W.rock), cs = hex2rgb(W.snow), cd = hex2rgb(W.sand), cw = hex2rgb(W.water), snow0 = Math.max(140, terr.hi * 0.62);
   if (!terr.mesh) terr.mesh = new Mesh(CV); const m = terr.mesh;
   if (!terrCv) { terrCv = document.createElement('canvas'); terrCv.width = terrCv.height = RV; terr.img = terrCv.getContext('2d').createImageData(RV, RV); }
   const px = terr.img.data, col = [0, 0, 0], pos = [0, 0, 0], FT = [0.52, 0.3, 0.5]; let any = false;
@@ -1083,7 +1094,7 @@ function buildTerrain() {
 // 地图边缘：地形保持原海拔一直到边，四周用一圈岩壁接到下方的底面
 function buildSkirt() {
   if (!terr.skirt) terr.skirt = new Mesh(SKN); const m = terr.skirt; m.n = 0;
-  const yb = Math.min(terr.lo, 0) - 60, rock = hex2rgb(T.rock), gc = hex2rgb(T.ground), G = 40000, ctr = [0, yb, 0];
+  const yb = Math.min(terr.lo, 0) - 60, rock = hex2rgb(W.rock), gc = hex2rgb(W.ground), G = 40000, ctr = [0, yb, 0];
   tri(m, [-G, yb, -G], [G, yb, -G], [G, yb, G], gc, 0); tri(m, [-G, yb, -G], [G, yb, G], [-G, yb, G], gc, 0);
   const P = (i, j) => [i * CELL - HALF, RH[j * VN + i], j * CELL - HALF], B = (i, j) => [i * CELL - HALF, yb, j * CELL - HALF];
   const wall = (a, b, c, d) => { tri(m, a, b, c, rock, 255, ctr); tri(m, a, c, d, rock, 255, ctr); };
@@ -1111,7 +1122,7 @@ function buildTrees() {
   const W = clamp(Math.round((500 + c.dist * 0.9) / CELL), 30, 150), ci = Math.round((c.tx + HALF) / CELL), cj = Math.round((c.tz + HALF) / CELL);
   trSt = { ci, cj, W, d: c.dist, far: c.dist > 2800 };
   if (TR && TH && !shop.open && !trSt.far) {
-    const k = T.night ? 0.45 : 1, cols = [[58, 122, 74], [74, 142, 84], [46, 104, 66], [92, 150, 80]].map(q => q.map(v => v * k)), wet = terr.wet; let cnt = 0;
+    const k = 1, cols = [[58, 122, 74], [74, 142, 84], [46, 104, 66], [92, 150, 80]].map(q => q.map(v => v * k)), wet = terr.wet; let cnt = 0;
     out: for (let j = Math.max(0, cj - W); j <= Math.min(GN - 1, cj + W); j++) for (let i = Math.max(0, ci - W); i <= Math.min(GN - 1, ci + W); i++) {
       const o = j * VN + i, d = TR[o]; if (!d || (wet && wet[o] > 128)) continue;
       const n = Math.floor(d / 255 * 1.7 + hsh(i, j, 7));
@@ -1148,22 +1159,61 @@ $('#tr-mode').onclick = () => setTmode('tree');
 $('#tr-clear').onclick = () => { if (!TR) return; TR = null; terrChanged(); saveTerr(); $('#t-status').textContent = '树已全部清除。'; };
 $('#tr-rad').addEventListener('input', req);
 setInterval(() => { if (!document.hidden && (fx.cloud || (!shop.open && TH && $('#tw-anim').checked && hasWater()))) req(); }, 90);   // 云在动或水在闪时约每秒 11 帧；都关掉或切走标签页就停
-function syncFx() { $('#fx-sh').checked = fx.shadow; $('#fx-cl').checked = fx.cloud; $('#fx-hr').value = fx.hour; }
-function saveFx() { try { localStorage.setItem('litecity-fx', JSON.stringify(fx)); } catch (e) {} req(); }
-$('#fx-sh').onchange = e => { fx.shadow = e.target.checked; shadowSize(fx.shadow ? SHSZ : 1); saveFx(); };
-$('#fx-cl').onchange = e => { fx.cloud = e.target.checked; saveFx(); };
-$('#fx-hr').oninput = e => { fx.hour = +e.target.value; saveFx(); };
 $('#cn-mode').onclick = () => setTmode('canal');
 $('#cn-clear').onclick = () => { if (!S.env.canals.some(k => k.wet)) return; pushUndoTerr(); for (const k of S.env.canals) k.wet = 0; terrChanged(); save(); $('#t-status').textContent = '渠水已排干，渠道本身还在。'; };
 $('#ws-clear').onclick = () => { if (!S.env.src.length) return; pushUndo(); S.env.src = []; terrChanged(); save(); updateSrcRead(); };
 $('#tb-rad').addEventListener('input', req);
 /* ───────── 主题色 ───────── */
 const T = {};
+// 实景里的材质颜色固定用这一套（不跟页面深浅主题走）；白天黑夜由时辰决定，交给光照去压暗
+const WORLD = { road: '#57616C', walk: '#B4BEC6', mark: '#F6D15A', ground: '#A7C196', ggrid: '#8FAE80', win: '#33465A', lit: '#FFD98A', water: '#5B9BD0', rock: '#8F8C82', snow: '#EEF2F4', sand: '#CBBF98' };
+const W = {};
 function readTheme() {
   const cs = getComputedStyle(document.documentElement);
   for (const k of ['paper', 'grid', 'grid2', 'road', 'walk', 'mark', 'sky', 'ground', 'ggrid', 'win', 'lit', 'ink', 'mute', 'accent', 'sel', 'panel', 'danger', 'water', 'rock', 'snow', 'sand', 'zenith', 'cloud']) T[k] = cs.getPropertyValue('--' + k).trim();
-  T.night = cs.colorScheme.includes('dark') || parseInt(T.sky.slice(1, 3), 16) < 90;
+  Object.assign(W, T, WORLD);
 }
+/* ───────── 天空与光照：时辰 → 太阳、月亮、天色 ───────── */
+const fx = { shadow: true, cloud: true, local: true, hour: 14.5 }, SHSZ = 2048, sh = { prog: null, tex: null, fbo: null, uVP: null, size: 0 };
+try { Object.assign(fx, JSON.parse(localStorage.getItem('litecity-fx') || '{}')); } catch (e) {}
+fx.hour = clamp(+fx.hour || 0, 0, 24); let cloudT = 40, lastCT = 0;
+const mix3 = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+const unit = v => { const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; };
+// 按时刻算太阳和月亮在天上的位置（北纬 35°，东 = +x，北 = −z）。勾“本地时间”时用这台电脑的时钟。
+// 太阳：由日期得赤纬、由钟点得时角。月亮：由朔望月龄得月相，月亮比太阳晚“月相角”过中天。
+function skyState() {
+  const now = new Date(), hour = fx.local ? now.getHours() + now.getMinutes() / 60 : fx.hour, lat = 35 * D2R;
+  const N = Math.floor((now - new Date(now.getFullYear(), 0, 0)) / 864e5);
+  const at = (ha, dc) => {
+    const se = Math.sin(lat) * Math.sin(dc) + Math.cos(lat) * Math.cos(dc) * Math.cos(ha), el = Math.asin(clamp(se, -1, 1)), ce = Math.cos(el);
+    let az = Math.acos(clamp((Math.sin(dc) - se * Math.sin(lat)) / (ce * Math.cos(lat) || 1e-6), -1, 1)); if (Math.sin(ha) > 0) az = TAU - az;
+    return { el, dir: [Math.sin(az) * ce, se, -Math.cos(az) * ce] };
+  };
+  const ha = (hour - 12) * 15 * D2R, sun = at(ha, -23.44 * D2R * Math.cos(TAU * (N + 10) / 365));
+  const SYN = 29.530588853, age = ((now / 864e5 + 2440587.5 - 2451550.1) % SYN + SYN) % SYN, ph = age / SYN * TAU, frac = (1 - Math.cos(ph)) / 2;
+  const moon = at(ha - ph, 23.44 * D2R * Math.sin(TAU * (N - 80) / 365 + ph));
+  const night = sst(0.06, -0.14, sun.el), dusk = Math.exp(-((sun.el / 0.17) ** 2));
+  let dir, col;                                                                  // 场景只有一盏主光：太阳在就用太阳，否则用月亮
+  if (sun.el > -0.03) { const t = clamp((sun.el - 0.02) / 0.5, 0, 1), k = sst(-0.03, 0.1, sun.el); dir = unit([sun.dir[0], Math.max(sun.dir[1], 0.1), sun.dir[2]]); col = [k, (0.55 + 0.42 * t) * k, (0.3 + 0.62 * t) * k]; }
+  else if (moon.el > 0.04) { const k = (0.1 + 0.3 * frac) * sst(0.04, 0.2, moon.el); dir = unit([moon.dir[0], Math.max(moon.dir[1], 0.12), moon.dir[2]]); col = [0.55 * k, 0.66 * k, 0.95 * k]; }
+  else { dir = unit([0.3, 0.9, 0.3]); col = [0.05, 0.06, 0.1]; }
+  return { hour, sun: sun.dir, moon: moon.dir, ph, frac, night, dir, col,
+    zen: mix3(mix3([0.24, 0.52, 0.84], [0.29, 0.38, 0.6], dusk * 0.6), [0.02, 0.04, 0.08], night),
+    hor: mix3(mix3([0.77, 0.87, 0.94], [0.96, 0.66, 0.42], dusk * 0.8), [0.07, 0.11, 0.17], night),
+    cloud: mix3(mix3([1, 1, 1], [1, 0.8, 0.68], dusk * 0.7), [0.2, 0.26, 0.36], night),
+    amb: 0.58 - 0.34 * night - (fx.shadow ? 0.1 * (1 - night) : 0) };
+}
+const hhmm = h => String(Math.floor(h) % 24).padStart(2, '0') + ':' + String(Math.round((h % 1) * 60) % 60).padStart(2, '0');
+function syncFx() {
+  $('#fx-sh').checked = fx.shadow; $('#fx-cl').checked = fx.cloud; $('#fx-lt').checked = fx.local;
+  const h = skyState().hour; $('#fx-hr').disabled = fx.local; $('#fx-hr').value = h; $('#fx-tm').textContent = hhmm(h);
+}
+function saveFx() { try { localStorage.setItem('litecity-fx', JSON.stringify(fx)); } catch (e) {} syncFx(); req(); }
+$('#fx-sh').onchange = e => { fx.shadow = e.target.checked; shadowSize(fx.shadow ? SHSZ : 1); saveFx(); };
+$('#fx-cl').onchange = e => { fx.cloud = e.target.checked; saveFx(); };
+$('#fx-lt').onchange = e => { fx.local = e.target.checked; if (!fx.local) fx.hour = +$('#fx-hr').value; saveFx(); };
+$('#fx-hr').oninput = e => { fx.hour = +e.target.value; saveFx(); };
+setInterval(() => { if (fx.local && !document.hidden) { syncFx(); req(); } }, 60000);   // 跟随本地时间时每分钟对一次表
 /* ───────── WebGL：一个着色器、两个缓冲、零贴图 ───────── */
 const c3 = $('#c3'), c2 = $('#c2'), g2 = c2.getContext('2d');
 const gl = c3.getContext('webgl2', { antialias: true, alpha: false, powerPreference: 'low-power' });
@@ -1244,7 +1294,7 @@ void main(){
     wc=mix(wc,vec3(.9,.94,.95)*(uAmb+.4),smoothstep(.5,.525,w)*(1.-smoothstep(.525,.6,w))*(.35+.65*vn(vP.xz*.45+uT*.15))*.4);   // 贴岸的一线浅沫
     c=mix(c,wc,smoothstep(.5-e,.5+e,w)); lit=0.;
   } else if(vC.a>.7 && vC.a<.9){ c=water(dist,.8,sunVis(vec3(0.,1.,0.))); lit=0.; }
-  else if(vC.a>.92 && vC.a<.97){ lit=0.; }        // 发光面：路灯灯头、隧道灯带
+  else if(vC.a>.92 && vC.a<.97){ c=mix(vec3(.9,.92,.93),c,.25+.75*uNight); lit=0.; }        // 发光面：路灯灯头、隧道灯带
   else if(vC.a<.6 && abs(n.y)<.5){               // 带窗墙面：窗格按位置现算，不占贴图
     vec2 t=normalize(vec2(-n.z,n.x)); float u=dot(vP.xz,t)/3.; float v=vP.y/3.2;
     float fu=fract(u), fv=fract(v);
@@ -1261,17 +1311,32 @@ const SKY_VS = `#version 300 es
 out vec2 vU; void main(){ vec2 p=vec2(float((gl_VertexID<<1)&2),float(gl_VertexID&2)); vU=p*2.-1.; gl_Position=vec4(vU,0.,1.); }`;
 const SKY_FS = `#version 300 es
 precision highp float;
-in vec2 vU; uniform vec3 uR,uUp,uF,uZen,uHor,uCloud,uEye,uSun,uSunC; uniform float uTan,uAsp,uTc,uNight; out vec4 o;${NOISE}
+in vec2 vU; uniform vec3 uR,uUp,uF,uZen,uHor,uCloud,uEye,uSunD,uMoonD,uSunC; uniform float uTan,uAsp,uTc,uNight,uPh; out vec4 o;${NOISE}
 float fbm(vec2 p){ float s=0.,a=.5; for(int i=0;i<5;i++){ s+=a*vn(p); p=p*2.03+17.; a*=.5; } return s; }
-void main(){                                      // 天空：渐变、太阳、一层会随风移动的云，全是算出来的
+void main(){                                      // 天空：渐变、星星、太阳、带月相的月亮、一层会随风移动的云，全是算出来的
   vec3 d=normalize(uF+uR*vU.x*uTan*uAsp+uUp*vU.y*uTan);
-  vec3 c=mix(uHor,uZen,pow(clamp(d.y,0.,1.),.5));
-  float sd=max(dot(d,uSun),0.);
-  c+=uSunC*(pow(sd,1100.)*1.6+pow(sd,28.)*.16)*(1.-uNight*.5);
+  vec3 c=d.y>0. ? mix(uHor,uZen,pow(d.y,.5)) : mix(uHor,uHor*.72,clamp(-d.y*4.,0.,1.));
+  if(uNight>.02 && d.y>0.){                        // 星星：把天球切成小格，少数格子里放一颗
+    vec2 sp=vec2(atan(d.z,d.x),asin(d.y))*150.; vec2 id=floor(sp);
+    vec2 f=fract(sp)-.5+(vec2(hash(id+1.7),hash(id+9.1))-.5)*.6;
+    c+=vec3(.9,.95,1.)*step(.93,hash(id+.5))*smoothstep(.16,.02,length(f))*uNight*(.35+.65*hash(id+4.2))*smoothstep(0.,.2,d.y);
+  }
+  float sd=max(dot(d,uSunD),0.), up=smoothstep(-.06,.02,uSunD.y);
+  c+=vec3(1.,.93,.78)*(smoothstep(.99985,.99996,sd)*2.+pow(sd,900.)*.9+pow(sd,26.)*.16)*up;
+  float md=dot(d,uMoonD), mr=.03;
+  c+=vec3(.5,.6,.8)*pow(max(md,0.),300.)*.22*uNight*step(-.05,uMoonD.y);
+  if(md>cos(mr*1.02) && uMoonD.y>-.05){            // 月亮：圆盘上朝太阳的一侧是亮的，明暗分界线由月相决定
+    vec3 mx=normalize(cross(vec3(0.,1.,0.),uMoonD)), my=cross(uMoonD,mx);
+    vec2 q=vec2(dot(d,mx),dot(d,my))/sin(mr), sdr=vec2(dot(uSunD,mx),dot(uSunD,my)); sdr/=max(length(sdr),1e-4);
+    float xs=dot(q,sdr), ys=dot(q,vec2(-sdr.y,sdr.x));
+    float litm=smoothstep(-.06,.06,xs-cos(uPh)*sqrt(max(1.-ys*ys,0.)));
+    vec3 mc=vec3(.94,.94,.87)*(.8+.2*vn(q*3.+7.));
+    c=mix(c,mix(c+vec3(.025),mc,litm),smoothstep(1.,.93,length(q))*(.4+.6*uNight));
+  }
   if(d.y>.012){
     vec2 p=(uEye.xz+d.xz/d.y*(2500.-uEye.y))/2800.+vec2(.004,.0017)*uTc;        // 云在 2500 m 高的一层上，地面的云影用同一张图
     float cl=smoothstep(.47,.72,fbm(p))*smoothstep(.012,.14,d.y);
-    vec3 cc=uCloud*(.76+.24*smoothstep(.3,.7,fbm(p*1.7+3.)))+uSunC*pow(sd,5.)*.12*(1.-uNight);
+    vec3 cc=uCloud*(.76+.24*smoothstep(.3,.7,fbm(p*1.7+3.)))+uSunC*pow(sd,5.)*.12*up;
     c=mix(c,cc,cl*.93);
   }
   o=vec4(c,1.);
@@ -1280,20 +1345,12 @@ const SH_VS = `#version 300 es
 layout(location=0) in vec3 aP; uniform mat4 uVP; void main(){ gl_Position=uVP*vec4(aP,1.); }`;
 const SH_FS = `#version 300 es
 precision highp float; void main(){}`;
-// ── 光影设置：阴影、云动、时辰（记在浏览器里）
-const fx = { shadow: true, cloud: true, hour: 14.5 }, SHSZ = 2048, sh = { prog: null, tex: null, fbo: null, uVP: null, size: 0 };
-try { Object.assign(fx, JSON.parse(localStorage.getItem('litecity-fx') || '{}')); } catch (e) {}
-fx.hour = clamp(+fx.hour || 14.5, 6, 18); let cloudT = 40, lastCT = 0;
+/* ───────── 3D 渲染：阴影图、相机、拾取、网格组装、出图 ───────── */
 function shadowSize(n) {                                                         // 关掉光影时把阴影图缩成 1×1，显存还回去
   if (!gl || sh.size === n) return; sh.size = n;
   gl.bindTexture(gl.TEXTURE_2D, sh.tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT16, n, n, 0, gl.DEPTH_COMPONENT, gl.UNSIGNED_SHORT, null);
   for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE], [gl.TEXTURE_COMPARE_MODE, gl.COMPARE_REF_TO_TEXTURE], [gl.TEXTURE_COMPARE_FUNC, gl.LEQUAL]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
   gl.bindFramebuffer(gl.FRAMEBUFFER, sh.fbo); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, sh.tex, 0); gl.drawBuffers([gl.NONE]); gl.readBuffer(gl.NONE); gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-}
-function sunState() {                                                            // 时辰 → 太阳方向和颜色：早晚低而偏橙，正午高而白
-  const a = (fx.hour - 6) / 12 * Math.PI, el = 0.16 + 0.95 * Math.sin(a), ce = Math.cos(el), d = [Math.cos(a) * ce, Math.sin(el), 0.42 * ce], l = Math.hypot(d[0], d[1], d[2]);
-  const dir = d.map(v => v / l), t = clamp((dir[1] - 0.15) / 0.45, 0, 1);
-  return { dir, col: T.night ? [0.62, 0.72, 1].map(v => v * 0.85) : [1, 0.6 + 0.37 * t, 0.34 + 0.58 * t] };
 }
 const mul4 = (A, B) => { const o = new Float32Array(16); for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) { let v = 0; for (let k = 0; k < 4; k++) v += A[k * 4 + r] * B[c * 4 + k]; o[c * 4 + r] = v; } return o; };
 function shadowPass(sun, c) {                                                    // 从太阳方向把镜头附近的地形、建筑、树画进一张深度图
@@ -1325,7 +1382,7 @@ function initGL() {
   for (const n of ['uVP', 'uSun', 'uSunC', 'uSky', 'uGrid', 'uEye', 'uWin', 'uLit', 'uWater', 'uSand', 'uRock', 'uT', 'uTc', 'uFx', 'uShTex', 'uSh', 'uLVP', 'uTa', 'uTb', 'uTn', 'uAmb', 'uAlpha', 'uFog', 'uNight']) U[n] = gl.getUniformLocation(prog, n);
   skyProg = gl.createProgram(); gl.attachShader(skyProg, sh_(gl.VERTEX_SHADER, SKY_VS)); gl.attachShader(skyProg, sh_(gl.FRAGMENT_SHADER, SKY_FS)); gl.linkProgram(skyProg);
   if (!gl.getProgramParameter(skyProg, gl.LINK_STATUS)) console.error(gl.getProgramInfoLog(skyProg));
-  for (const n of ['uR', 'uUp', 'uF', 'uZen', 'uHor', 'uCloud', 'uEye', 'uSun', 'uSunC', 'uTan', 'uAsp', 'uTc', 'uNight']) SU[n] = gl.getUniformLocation(skyProg, n);
+  for (const n of ['uR', 'uUp', 'uF', 'uZen', 'uHor', 'uCloud', 'uEye', 'uSunD', 'uMoonD', 'uPh', 'uSunC', 'uTan', 'uAsp', 'uTc', 'uNight']) SU[n] = gl.getUniformLocation(skyProg, n);
   vaoSky = gl.createVertexArray();
   sh.prog = gl.createProgram(); gl.attachShader(sh.prog, sh_(gl.VERTEX_SHADER, SH_VS)); gl.attachShader(sh.prog, sh_(gl.FRAGMENT_SHADER, SH_FS)); gl.linkProgram(sh.prog); sh.uVP = gl.getUniformLocation(sh.prog, 'uVP');
   sh.tex = gl.createTexture(); sh.fbo = gl.createFramebuffer(); shadowSize(fx.shadow ? SHSZ : 1);
@@ -1340,10 +1397,11 @@ function initGL() {
   gl.enable(gl.DEPTH_TEST); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 }
 const camCity = { tx: 0, ty: 0, tz: -30, yaw: 0.55, pitch: 0.62, dist: 430 }, camShop = { tx: 0, ty: 6, tz: 0, yaw: 0.7, pitch: 0.42, dist: 60 };
-const cam = () => shop.open ? camShop : camCity;
+const cam = () => shop.open ? camShop : camCity, PMIN = 0.06, PUP = -1.4;
 function camBasis(c) {
-  const cp = Math.cos(c.pitch), sp = Math.sin(c.pitch), sy = Math.sin(c.yaw), cy = Math.cos(c.yaw);
-  return { eye: [c.tx + c.dist * cp * sy, c.ty + c.dist * sp, c.tz + c.dist * cp * cy], f: [-cp * sy, -sp, -cp * cy], r: [cy, 0, -sy], u: [-sy * sp, cp, -cy * sp] };
+  // 俯角不小于 PMIN 时，镜头绕地面上的目标点转；再往上抬，镜头就停在贴地的位置不动，改成原地抬头（仰视）
+  const pe = Math.max(c.pitch, PMIN), cp = Math.cos(c.pitch), sp = Math.sin(c.pitch), sy = Math.sin(c.yaw), cy = Math.cos(c.yaw), ce = Math.cos(pe);
+  return { eye: [c.tx + c.dist * ce * sy, c.ty + c.dist * Math.sin(pe) + (c.lift || 0), c.tz + c.dist * ce * cy], f: [-cp * sy, -sp, -cp * cy], r: [cy, 0, -sy], u: [-sy * sp, cp, -cy * sp] };
 }
 const FOV = 42 * D2R;
 function rayAt(ev) {
@@ -1381,7 +1439,7 @@ function fit(c) { const dpr = Math.min(devicePixelRatio || 1, 2), w = Math.round
 
 function buildStatic() {
   const m = stat; m.n = 0;
-  const G = 40000, gc = hex2rgb(T.ground);
+  const G = 40000, gc = hex2rgb(W.ground);
   const gq = (x0, z0, x1, z1) => { tri(m, [x0, 0, z0], [x1, 0, z0], [x1, 0, z1], gc, 0); tri(m, [x0, 0, z0], [x1, 0, z1], [x0, 0, z1], gc, 0); };
   if (shop.open || !TH) gq(-G, -G, G, G);                                    // 有地形时，底面和四周岩壁归地形那一遍画
   if (shop.open) { emitAsset(m, shop.draft, { x: 0, z: 0, r: 0 }); }
@@ -1390,7 +1448,7 @@ function buildStatic() {
 }
 function buildDyn() {
   const m = dyn; m.n = 0;
-  const acc = hex2rgb(T.accent), sel = hex2rgb(T.sel), k = cam().dist * 0.016;
+  const acc = hex2rgb(W.accent), sel = hex2rgb(W.sel), k = cam().dist * 0.016;
   if (shop.open) {
     const f = fp(shop.draft), z = f.d / 2 + 1.5;                              // 正面指示
     tri(m, [-1.5, 0.1, z], [1.5, 0.1, z], [0, 0.1, z + 3], acc, 255);
@@ -1402,7 +1460,7 @@ function buildDyn() {
     }
   } else {
     const L = lift() + 0.4;
-    if (S.env.water != null) { const y = S.env.water - 0.05, G = 40000, wc = hex2rgb(T.water); tri(m, [-G, y, -G], [G, y, -G], [G, y, G], wc, 204); tri(m, [-G, y, -G], [G, y, G], [-G, y, G], wc, 204); }
+    if (S.env.water != null) { const y = S.env.water - 0.05, G = 40000, wc = hex2rgb(W.water); tri(m, [-G, y, -G], [G, y, -G], [G, y, G], wc, 204); tri(m, [-G, y, -G], [G, y, G], [-G, y, G], wc, 204); }
     if (ui.tool === 'terrain') for (const q of S.env.src) emitPart(m, { s: 'cone', x: q.x, z: q.z, y: Math.max(q.h, H(q.x, q.z)) + k * 2.2, w: k * 1.6, d: k * 1.6, h: -k * 2.2 }, ID_TF, sel);   // 水点标记：倒锥指向水面
     if (ui.tool === 'terrain' && (ui.tmode === 'brush' || ui.tmode === 'tree') && ui.hover) {
       const r = ui.tmode === 'tree' ? numIn('tr-rad', 200, 20, 4000) : numIn('tb-rad', 150, 20, 4000), t = Math.max(1, k * 0.2), h = ui.hover;
@@ -1442,7 +1500,9 @@ function draw3() {
   fit(c3); gl.viewport(0, 0, c3.width, c3.height);
   if (!shop.open) {
     const c = camCity; c.ty = H(c.tx, c.tz);
-    if (TH) for (let k = 0; k < 80; k++) {                                     // 镜头和视线都不许钻进山里：被挡就抬高俯角
+    c.lift = 0;
+    if (c.pitch < PMIN) { const e = camBasis(c).eye; c.lift = Math.max(0, H(e[0], e[2]) + 1.8 - e[1]); }   // 仰视时人站在地上：眼睛至少离地 1.8 m
+    else if (TH) for (let k = 0; k < 80; k++) {                                     // 镜头和视线都不许钻进山里：被挡就抬高俯角
       const e = camBasis(c).eye; let ok = true;
       for (const t of [1, 0.8, 0.6, 0.4, 0.2]) { const x = c.tx + (e[0] - c.tx) * t, z = c.tz + (e[2] - c.tz) * t; if (c.ty + (e[1] - c.ty) * t < H(x, z) + Math.max(2, c.dist * 0.03) * t) { ok = false; break; } }
       if (ok || c.pitch >= 1.5) break; c.pitch = Math.min(1.5, c.pitch + 0.015);
@@ -1454,20 +1514,20 @@ function draw3() {
   const Pm = [f / asp, 0, 0, 0, 0, f, 0, 0, 0, 0, (far + near) / (near - far), -1, 0, 0, 2 * far * near / (near - far), 0];
   const VP = new Float32Array(16);
   for (let col = 0; col < 4; col++) for (let r = 0; r < 4; r++) { let s = 0; for (let k = 0; k < 4; k++) s += Pm[k * 4 + r] * V[col * 4 + k]; VP[col * 4 + r] = s; }
-  const v3 = h => hex2rgb(h).map(x => x / 255), sky = v3(T.sky), sun = sunState();
-  const shd = fx.shadow ? shadowPass(sun.dir, c) : null; gl.viewport(0, 0, c3.width, c3.height);
+  const v3 = h => hex2rgb(h).map(x => x / 255), st = skyState(), sky = st.hor;
+  const shd = fx.shadow ? shadowPass(st.dir, c) : null; gl.viewport(0, 0, c3.width, c3.height);
   gl.clearColor(sky[0], sky[1], sky[2], 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   gl.disable(gl.DEPTH_TEST); gl.depthMask(false); gl.disable(gl.BLEND); gl.useProgram(skyProg); gl.bindVertexArray(vaoSky);
   gl.uniform3fv(SU.uR, b.r); gl.uniform3fv(SU.uUp, b.u); gl.uniform3fv(SU.uF, b.f); gl.uniform3fv(SU.uEye, e); gl.uniform1f(SU.uTan, Math.tan(FOV / 2)); gl.uniform1f(SU.uAsp, asp);
-  gl.uniform3fv(SU.uSun, sun.dir); gl.uniform3fv(SU.uSunC, sun.col); gl.uniform1f(SU.uTc, cloudT); gl.uniform1f(SU.uNight, T.night ? 1 : 0);
-  gl.uniform3fv(SU.uZen, v3(T.zenith)); gl.uniform3fv(SU.uHor, sky); gl.uniform3fv(SU.uCloud, v3(T.cloud));
+  gl.uniform3fv(SU.uSunD, st.sun); gl.uniform3fv(SU.uMoonD, st.moon); gl.uniform1f(SU.uPh, st.ph); gl.uniform3fv(SU.uSunC, st.col); gl.uniform1f(SU.uTc, cloudT); gl.uniform1f(SU.uNight, st.night);
+  gl.uniform3fv(SU.uZen, st.zen); gl.uniform3fv(SU.uHor, sky); gl.uniform3fv(SU.uCloud, st.cloud);
   gl.drawArrays(gl.TRIANGLES, 0, 3); gl.enable(gl.DEPTH_TEST); gl.depthMask(true);
   gl.useProgram(prog); gl.uniformMatrix4fv(U.uVP, false, VP);
-  gl.uniform3fv(U.uSun, sun.dir); gl.uniform3fv(U.uSunC, fx.shadow ? sun.col : [1, 1, 1]); gl.uniform3fv(U.uRock, v3(T.rock)); gl.uniform1f(U.uTc, cloudT);
+  gl.uniform3fv(U.uSun, st.dir); gl.uniform3fv(U.uSunC, st.col); gl.uniform3fv(U.uRock, v3(W.rock)); gl.uniform1f(U.uTc, cloudT);
   gl.uniform1f(U.uFx, shd ? 1 : 0); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, sh.tex); gl.uniform1i(U.uSh, 0);
-  if (shd) { gl.uniformMatrix4fv(U.uLVP, false, shd.LVP); gl.uniform1f(U.uShTex, shd.tex); } gl.uniform3fv(U.uSky, sky); gl.uniform3fv(U.uGrid, v3(T.ggrid)); gl.uniform3fv(U.uEye, e);
-  gl.uniform3fv(U.uWin, v3(T.win)); gl.uniform3fv(U.uLit, v3(T.lit)); gl.uniform3fv(U.uWater, v3(T.water)); gl.uniform3fv(U.uSand, v3(T.sand));
-  gl.uniform1f(U.uAmb, (T.night ? 0.42 : 0.58) - (fx.shadow ? 0.1 : 0)); gl.uniform1f(U.uNight, T.night ? 1 : 0); gl.uniform1f(U.uT, (performance.now() / 1000) % 3600);
+  if (shd) { gl.uniformMatrix4fv(U.uLVP, false, shd.LVP); gl.uniform1f(U.uShTex, shd.tex); } gl.uniform3fv(U.uSky, sky); gl.uniform3fv(U.uGrid, v3(W.ggrid)); gl.uniform3fv(U.uEye, e);
+  gl.uniform3fv(U.uWin, v3(W.win)); gl.uniform3fv(U.uLit, v3(W.lit)); gl.uniform3fv(U.uWater, v3(W.water)); gl.uniform3fv(U.uSand, v3(W.sand));
+  gl.uniform1f(U.uAmb, st.amb); gl.uniform1f(U.uNight, st.night); gl.uniform1f(U.uT, (performance.now() / 1000) % 3600);
   gl.uniform1i(U.uTn, shop.open ? 0 : tunSeg.n); gl.uniform4fv(U.uTa, tunSeg.a); gl.uniform4fv(U.uTb, tunSeg.b); gl.uniform1f(U.uFog, Math.max(26000, c.dist * 8));
   gl.disable(gl.BLEND); gl.uniform1f(U.uAlpha, 1);
   const selR = ui.sel && ui.sel.k === 'road' ? S.roads[ui.sel.i] : null, xray = !shop.open && ((ui.tool === 'road' && $('#roadLv').value === '2') || (selR && selR.m === 2));
@@ -1679,7 +1739,13 @@ c3.addEventListener('dblclick', e => { if (shop.open || ui.tool !== 'select') re
 // 右：实景
 let m3 = null, edge = null, lastT = 0;
 function setEdge(v) { edge = v; const on = (c, f) => $('.edge.' + c).classList.toggle('on', !!f); on('e-t', v && v.fz > 0); on('e-b', v && v.fz < 0); on('e-l', v && v.fx < 0); on('e-r', v && v.fx > 0); }
-c3.addEventListener('pointerleave', () => setEdge(null));
+c3.addEventListener('pointerleave', e => {                                       // 实景占满时，鼠标从哪边移出画框，镜头就继续往哪边走，直到鼠标回到画面中间
+  if (!$('#stage').classList.contains('only3') || e.pointerType !== 'mouse' || e.buttons) return setEdge(null);
+  const rc = c3.getBoundingClientRect(), ox = e.clientX <= rc.left + 1 ? -1 : e.clientX >= rc.right - 1 ? 1 : 0, oz = e.clientY <= rc.top + 1 ? 1 : e.clientY >= rc.bottom - 1 ? -1 : 0;
+  if (!ox && !oz) return setEdge(null);                                          // 只是移到了画面里的控件上
+  setEdge({ fx: ox, fz: oz, t0: edge ? edge.t0 : performance.now(), out: true }); req();
+});
+document.addEventListener('pointermove', e => { if (edge && edge.out && e.target !== c3 && e.target.closest && e.target.closest('.bar,.shelf,.shop,.ledger,.fx,.ptop')) setEdge(null); });   // 移到工具栏上就停，不然没法点按钮
 c3.addEventListener('pointerdown', () => setEdge(null));
 gestures(c3, {
   down(e) {
@@ -1697,7 +1763,7 @@ gestures(c3, {
   move(e, dx, dy) {
     if (!m3) return; m3.moved += Math.abs(dx) + Math.abs(dy); const c = cam();
     if (m3.mode === 'tool') { const w = groundHit(rayAt(e)); if (w) dragTo(w); return; }
-    if (m3.mode === 'orbit') { c.yaw -= dx * 0.006; c.pitch = clamp(c.pitch + dy * 0.005, 0.06, 1.5); }
+    if (m3.mode === 'orbit') { c.yaw -= dx * 0.006; c.pitch = clamp(c.pitch + dy * 0.005, PUP, 1.5); }
     else { const k = c.dist * 0.0017, sy = Math.sin(c.yaw), cy = Math.cos(c.yaw); c.tx += -cy * dx * k - sy * dy * k; c.tz += sy * dx * k - cy * dy * k; }
     req();
   },
@@ -1738,6 +1804,13 @@ addEventListener('keydown', e => {
 addEventListener('keyup', e => { if (e.key === ' ') space = false; });
 $('#tools').addEventListener('click', e => { const b = e.target.closest('button'); if (b && !shop.open) setTool(b.dataset.tool); });
 $('#rotBtn').onclick = () => rotate(1);
+function setSolo(v) {                                                            // 收起一侧面板，另一侧占满；再点一次还原
+  const st = $('#stage'), cur = st.classList.contains('only2') ? '2' : st.classList.contains('only3') ? '3' : '', nv = cur === v ? '' : v;
+  st.classList.toggle('only2', nv === '2'); st.classList.toggle('only3', nv === '3');
+  for (const k of ['2', '3']) { $('#max' + k).textContent = nv === k ? '还原' : '放大'; $('#max' + k).setAttribute('aria-pressed', nv === k); }
+  setEdge(null); req();
+}
+$('#max2').onclick = () => setSolo('2'); $('#max3').onclick = () => setSolo('3');
 $('#roadLv').onchange = req;
 $('#undoBtn').onclick = () => { if (!shop.open) undo(); };
 $('#snapRoad').onchange = e => { ui.snap = e.target.checked; req(); };
@@ -1950,7 +2023,7 @@ function boot() {
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(req);
 }
 boot();
-window.LiteCity = { state: S, camera: camCity, redraw: req };              // 调试和脚本用的入口
+window.LiteCity = { state: S, camera: camCity, redraw: req, sky: skyState };              // 调试和脚本用的入口
 })();
 </script>
 

@@ -78,7 +78,7 @@ void main(){
     wc=mix(wc,vec3(.9,.94,.95)*(uAmb+.4),smoothstep(.5,.525,w)*(1.-smoothstep(.525,.6,w))*(.35+.65*vn(vP.xz*.45+uT*.15))*.4);   // 贴岸的一线浅沫
     c=mix(c,wc,smoothstep(.5-e,.5+e,w)); lit=0.;
   } else if(vC.a>.7 && vC.a<.9){ c=water(dist,.8,sunVis(vec3(0.,1.,0.))); lit=0.; }
-  else if(vC.a>.92 && vC.a<.97){ lit=0.; }        // 发光面：路灯灯头、隧道灯带
+  else if(vC.a>.92 && vC.a<.97){ c=mix(vec3(.9,.92,.93),c,.25+.75*uNight); lit=0.; }        // 发光面：路灯灯头、隧道灯带
   else if(vC.a<.6 && abs(n.y)<.5){               // 带窗墙面：窗格按位置现算，不占贴图
     vec2 t=normalize(vec2(-n.z,n.x)); float u=dot(vP.xz,t)/3.; float v=vP.y/3.2;
     float fu=fract(u), fv=fract(v);
@@ -95,17 +95,32 @@ const SKY_VS = `#version 300 es
 out vec2 vU; void main(){ vec2 p=vec2(float((gl_VertexID<<1)&2),float(gl_VertexID&2)); vU=p*2.-1.; gl_Position=vec4(vU,0.,1.); }`;
 const SKY_FS = `#version 300 es
 precision highp float;
-in vec2 vU; uniform vec3 uR,uUp,uF,uZen,uHor,uCloud,uEye,uSun,uSunC; uniform float uTan,uAsp,uTc,uNight; out vec4 o;${NOISE}
+in vec2 vU; uniform vec3 uR,uUp,uF,uZen,uHor,uCloud,uEye,uSunD,uMoonD,uSunC; uniform float uTan,uAsp,uTc,uNight,uPh; out vec4 o;${NOISE}
 float fbm(vec2 p){ float s=0.,a=.5; for(int i=0;i<5;i++){ s+=a*vn(p); p=p*2.03+17.; a*=.5; } return s; }
-void main(){                                      // 天空：渐变、太阳、一层会随风移动的云，全是算出来的
+void main(){                                      // 天空：渐变、星星、太阳、带月相的月亮、一层会随风移动的云，全是算出来的
   vec3 d=normalize(uF+uR*vU.x*uTan*uAsp+uUp*vU.y*uTan);
-  vec3 c=mix(uHor,uZen,pow(clamp(d.y,0.,1.),.5));
-  float sd=max(dot(d,uSun),0.);
-  c+=uSunC*(pow(sd,1100.)*1.6+pow(sd,28.)*.16)*(1.-uNight*.5);
+  vec3 c=d.y>0. ? mix(uHor,uZen,pow(d.y,.5)) : mix(uHor,uHor*.72,clamp(-d.y*4.,0.,1.));
+  if(uNight>.02 && d.y>0.){                        // 星星：把天球切成小格，少数格子里放一颗
+    vec2 sp=vec2(atan(d.z,d.x),asin(d.y))*150.; vec2 id=floor(sp);
+    vec2 f=fract(sp)-.5+(vec2(hash(id+1.7),hash(id+9.1))-.5)*.6;
+    c+=vec3(.9,.95,1.)*step(.93,hash(id+.5))*smoothstep(.16,.02,length(f))*uNight*(.35+.65*hash(id+4.2))*smoothstep(0.,.2,d.y);
+  }
+  float sd=max(dot(d,uSunD),0.), up=smoothstep(-.06,.02,uSunD.y);
+  c+=vec3(1.,.93,.78)*(smoothstep(.99985,.99996,sd)*2.+pow(sd,900.)*.9+pow(sd,26.)*.16)*up;
+  float md=dot(d,uMoonD), mr=.03;
+  c+=vec3(.5,.6,.8)*pow(max(md,0.),300.)*.22*uNight*step(-.05,uMoonD.y);
+  if(md>cos(mr*1.02) && uMoonD.y>-.05){            // 月亮：圆盘上朝太阳的一侧是亮的，明暗分界线由月相决定
+    vec3 mx=normalize(cross(vec3(0.,1.,0.),uMoonD)), my=cross(uMoonD,mx);
+    vec2 q=vec2(dot(d,mx),dot(d,my))/sin(mr), sdr=vec2(dot(uSunD,mx),dot(uSunD,my)); sdr/=max(length(sdr),1e-4);
+    float xs=dot(q,sdr), ys=dot(q,vec2(-sdr.y,sdr.x));
+    float litm=smoothstep(-.06,.06,xs-cos(uPh)*sqrt(max(1.-ys*ys,0.)));
+    vec3 mc=vec3(.94,.94,.87)*(.8+.2*vn(q*3.+7.));
+    c=mix(c,mix(c+vec3(.025),mc,litm),smoothstep(1.,.93,length(q))*(.4+.6*uNight));
+  }
   if(d.y>.012){
     vec2 p=(uEye.xz+d.xz/d.y*(2500.-uEye.y))/2800.+vec2(.004,.0017)*uTc;        // 云在 2500 m 高的一层上，地面的云影用同一张图
     float cl=smoothstep(.47,.72,fbm(p))*smoothstep(.012,.14,d.y);
-    vec3 cc=uCloud*(.76+.24*smoothstep(.3,.7,fbm(p*1.7+3.)))+uSunC*pow(sd,5.)*.12*(1.-uNight);
+    vec3 cc=uCloud*(.76+.24*smoothstep(.3,.7,fbm(p*1.7+3.)))+uSunC*pow(sd,5.)*.12*up;
     c=mix(c,cc,cl*.93);
   }
   o=vec4(c,1.);
