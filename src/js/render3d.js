@@ -52,8 +52,9 @@ function initGL() {
 const camCity = { tx: 0, ty: 0, tz: -30, yaw: 0.55, pitch: 0.62, dist: 430 }, camShop = { tx: 0, ty: 6, tz: 0, yaw: 0.7, pitch: 0.42, dist: 60 };
 const cam = () => shop.open ? camShop : camCity, PMIN = 0.06, PUP = -1.4;
 function camBasis(c) {
-  // 俯角不小于 PMIN 时，镜头绕地面上的目标点转；再往上抬，镜头就停在贴地的位置不动，改成原地抬头（仰视）
-  const pe = Math.max(c.pitch, PMIN), cp = Math.cos(c.pitch), sp = Math.sin(c.pitch), sy = Math.sin(c.yaw), cy = Math.cos(c.yaw), ce = Math.cos(pe);
+  // c.pitch 是你想要的视线俯仰；c.pe 是镜头实际停的角度（不低于 PMIN，也不低到被山挡住，由 draw3 每帧算好）。
+  // 两者相等时镜头绕地面目标点转；视线比 pe 更平或朝上时，镜头停在原地不动，变成原地抬头（仰视）
+  const pe = Math.max(c.pe != null ? c.pe : c.pitch, c.pitch, PMIN), cp = Math.cos(c.pitch), sp = Math.sin(c.pitch), sy = Math.sin(c.yaw), cy = Math.cos(c.yaw), ce = Math.cos(pe);
   return { eye: [c.tx + c.dist * ce * sy, c.ty + c.dist * Math.sin(pe) + (c.lift || 0), c.tz + c.dist * ce * cy], f: [-cp * sy, -sp, -cp * cy], r: [cy, 0, -sy], u: [-sy * sp, cp, -cy * sp] };
 }
 const FOV = 42 * D2R;
@@ -153,13 +154,13 @@ function draw3() {
   fit(c3); gl.viewport(0, 0, c3.width, c3.height);
   if (!shop.open) {
     const c = camCity; c.ty = H(c.tx, c.tz);
-    c.lift = 0;
-    if (c.pitch < PMIN) { const e = camBasis(c).eye; c.lift = Math.max(0, H(e[0], e[2]) + 1.8 - e[1]); }   // 仰视时人站在地上：眼睛至少离地 1.8 m
-    else if (TH) for (let k = 0; k < 80; k++) {                                     // 镜头和视线都不许钻进山里：被挡就抬高俯角
+    c.lift = 0; c.pe = Math.max(c.pitch, PMIN);
+    if (TH) for (let k = 0; k < 100; k++) {                                    // 镜头和视线都不许钻进山里：被挡就把镜头的位置抬高，但不改你想看的方向
       const e = camBasis(c).eye; let ok = true;
       for (const t of [1, 0.8, 0.6, 0.4, 0.2]) { const x = c.tx + (e[0] - c.tx) * t, z = c.tz + (e[2] - c.tz) * t; if (c.ty + (e[1] - c.ty) * t < H(x, z) + Math.max(2, c.dist * 0.03) * t) { ok = false; break; } }
-      if (ok || c.pitch >= 1.5) break; c.pitch = Math.min(1.5, c.pitch + 0.015);
+      if (ok || c.pe >= 1.5) break; c.pe = Math.min(1.5, c.pe + 0.015);
     }
+    if (c.pitch < c.pe) { const e = camBasis(c).eye; c.lift = Math.max(0, H(e[0], e[2]) + 1.8 - e[1]); }   // 仰视时人站在地上：眼睛至少离地 1.8 m
   }
   const c = cam(), b = camBasis(c), e = b.eye, asp = c3.width / c3.height, near = Math.max(1, c.dist * 0.05), far = 70000, f = 1 / Math.tan(FOV / 2);
   const dot = (a, v) => a[0] * v[0] + a[1] * v[1] + a[2] * v[2];
