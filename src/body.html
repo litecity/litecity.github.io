@@ -1,0 +1,179 @@
+<div class="app">
+  <header class="bar">
+    <div class="brand">LiteCity <small>轻量造景沙盘</small></div>
+    <div class="seg" role="toolbar" aria-label="工具" id="tools">
+      <button data-tool="select" aria-pressed="true">选择<kbd>1</kbd></button>
+      <button data-tool="road" aria-pressed="false">修路<kbd>2</kbd></button>
+      <button data-tool="build" aria-pressed="false">建造<kbd>3</kbd></button>
+      <button data-tool="erase" aria-pressed="false">拆除<kbd>4</kbd></button>
+      <button data-tool="terrain" aria-pressed="false">地形<kbd>5</kbd></button>
+    </div>
+    <div class="opts">
+      <label>画法 <select id="roadMode"><option value="line">直线</option><option value="curve">自由曲线</option></select></label>
+      <label>路面 <select id="roadLv"><option value="0">贴地</option><option value="1">桥</option><option value="2">隧道</option></select></label>
+      <label>路型 <select id="roadW"><option value="8">街道 8 m</option><option value="14">大道 14 m</option></select></label>
+      <label><input type="checkbox" id="snapRoad" checked> 建筑贴路</label>
+      <button class="btn sm" id="rotBtn" title="旋转 15°（R）">旋转 ⟳</button>
+    </div>
+    <div class="spacer"></div>
+    <button class="btn" id="undoBtn" title="Ctrl+Z">撤销</button>
+    <button class="btn" id="ledgerBtn">内存账本</button>
+    <button class="btn warn" id="clearBtn">清空</button>
+  </header>
+
+  <main class="stage" id="stage">
+    <aside class="shop" id="shop" hidden>
+      <div class="row" style="justify-content:space-between"><h2>建造车间</h2><button class="btn sm" id="shopClose">关闭</button></div>
+      <input type="text" id="shopName" maxlength="16" placeholder="资产名称" aria-label="资产名称">
+      <h3>用 AI 生成</h3>
+      <textarea id="aiPrompt" maxlength="300" placeholder="描述想要的建筑，例如：红砖钟楼，顶上有尖顶和四面钟"></textarea>
+      <div class="row">
+        <button class="btn pri" id="aiGo" disabled>连接中…</button>
+        <button class="btn" id="aiStop" hidden>停止</button>
+        <button class="btn" id="aiRand">随机一栋</button>
+      </div>
+      <div class="status" id="aiStatus"></div>
+      <h3>部件（矢量体块）</h3>
+      <div class="row" id="addRow">
+        <button class="btn sm" data-add="box">＋方体</button><button class="btn sm" data-add="gable">＋坡顶</button>
+        <button class="btn sm" data-add="pyr">＋锥顶</button><button class="btn sm" data-add="cyl">＋圆柱</button>
+        <button class="btn sm" data-add="cone">＋圆锥</button>
+      </div>
+      <div class="parts" id="partList"></div>
+      <div class="fields" id="fields">
+        <label class="wide">形状<select id="pf-s"><option value="box">方体</option><option value="gable">双坡顶</option><option value="pyr">四棱锥</option><option value="cyl">圆柱</option><option value="cone">圆锥</option></select></label>
+        <label class="wide">颜色<input type="color" id="pf-c"></label>
+        <label>X 左右<input type="number" step="0.5" id="pf-x"></label>
+        <label>Z 前后<input type="number" step="0.5" id="pf-z"></label>
+        <label>离地<input type="number" step="0.5" min="0" id="pf-y"></label>
+        <label>转角°<input type="number" step="15" id="pf-r"></label>
+        <label>宽<input type="number" step="0.5" min="0.2" id="pf-w"></label>
+        <label>深<input type="number" step="0.5" min="0.2" id="pf-d"></label>
+        <label>高<input type="number" step="0.5" min="0.05" id="pf-h"></label>
+        <span></span>
+        <label class="chk"><input type="checkbox" id="pf-win"> 墙面带窗格</label>
+        <div class="row" style="grid-column:span 2;justify-content:flex-end">
+          <button class="btn sm" id="partDup">复制</button><button class="btn sm warn" id="partDel">删除</button>
+        </div>
+      </div>
+      <div class="readout" id="shopRead"></div>
+      <div class="row">
+        <button class="btn pri" id="shopSave">保存到资产架</button>
+        <button class="btn warn" id="shopDelete" hidden>删除此资产</button>
+      </div>
+    </aside>
+    <aside class="shop" id="terra" hidden>
+      <div class="row" style="justify-content:space-between"><h2>地形</h2><button class="btn sm" id="terraClose">关闭</button></div>
+      <div class="readout" id="t-read"></div>
+      <h3>抹平笔刷</h3>
+      <div class="fields">
+        <label class="wide">目标海拔 m<input type="number" id="tb-elev" value="0" step="1"></label>
+        <label>半径 m<input type="number" id="tb-rad" value="150" step="10" min="20"></label>
+        <label>力度<input type="number" id="tb-str" value="0.5" step="0.1" min="0.05" max="1"></label>
+      </div>
+      <div class="row"><button class="btn sm" id="tb-all">全图抹平到此海拔</button></div>
+      <h3>随机山脉</h3>
+      <div class="fields">
+        <label>种子<input type="number" id="tg-seed" value="7" step="1"></label>
+        <label>最高海拔 m<input type="number" id="tg-max" value="600" step="50" min="1"></label>
+        <label>山体尺度 m<input type="number" id="tg-scale" value="3000" step="250" min="100"></label>
+        <label>细节层数<input type="number" id="tg-oct" value="6" step="1" min="1" max="9"></label>
+        <label>粗糙度<input type="number" id="tg-gain" value="0.5" step="0.05" min="0.2" max="0.8"></label>
+        <label>山脊锐度<input type="number" id="tg-ridge" value="0.7" step="0.1" min="0" max="1"></label>
+        <label>走向 °<input type="number" id="tg-angle" value="25" step="5"></label>
+        <label>拉伸<input type="number" id="tg-stretch" value="2" step="0.5" min="1" max="6"></label>
+        <label class="wide">平原占比 0–0.9<input type="number" id="tg-plain" value="0.35" step="0.05" min="0" max="0.9"></label>
+        <label class="wide">中央平地半径 m<input type="number" id="tg-center" value="700" step="50" min="0"></label>
+        <label class="wide">嶙峋度 0–1<input type="number" id="tg-crag" value="0.7" step="0.1" min="0" max="1"></label>
+      </div>
+      <div class="row"><button class="btn pri" id="tg-go">生成山脉</button><button class="btn" id="tg-reseed">换个种子</button></div>
+      <h3>黑白图导入</h3>
+      <div class="fields">
+        <label class="wide">黑色 = 海拔 m<input type="number" id="ti-min" value="0" step="5"></label>
+        <label class="wide">白色 = 海拔 m<input type="number" id="ti-max" value="600" step="10"></label>
+      </div>
+      <input type="file" id="ti-file" accept="image/*" aria-label="选择黑白高度图">
+      <h3>水</h3>
+      <div class="fields">
+        <label class="chk"><input type="checkbox" id="tw-on"> 海平面</label>
+        <label class="wide">水位 m（以下被淹）<input type="number" id="tw-level" value="-2" step="1"></label>
+        <label class="chk"><input type="checkbox" id="tw-lake"> 洼地积水成湖</label>
+        <span class="wide"></span>
+        <label class="chk"><input type="checkbox" id="tw-riv"> 河流（沿坡汇流）</label>
+        <label class="wide">汇水阈值（格）<input type="number" id="tw-thr" value="300" step="50" min="5"></label>
+        <label class="chk"><input type="checkbox" id="tw-anim" checked> 波光动画</label>
+      </div>
+      <h3>沟渠（像修路一样画）</h3>
+      <div class="fields">
+        <label>渠宽 m<input type="number" id="cn-w" value="80" step="10" min="40"></label>
+        <label>渠深 m<input type="number" id="cn-d" value="8" step="1" min="1"></label>
+        <label class="wide">最小坡降 ‰<input type="number" id="cn-g" value="2" step="0.5" min="0"></label>
+        <label class="chk"><input type="checkbox" id="cn-water" checked> 渠里放水</label>
+      </div>
+      <div class="row"><button class="btn sm" id="cn-mode" aria-pressed="false">在地图上画沟渠</button><button class="btn sm warn" id="cn-clear">排干全部渠水</button></div>
+      <h3>树刷子</h3>
+      <div class="fields">
+        <label>半径 m<input type="number" id="tr-rad" value="200" step="10" min="20"></label>
+        <label>密度<input type="number" id="tr-den" value="0.7" step="0.1" min="0.05" max="1"></label>
+        <label class="chk"><input type="checkbox" id="tr-erase"> 擦除</label>
+      </div>
+      <div class="row"><button class="btn sm" id="tr-mode" aria-pressed="false">在地图上刷树</button><button class="btn sm warn" id="tr-clear">清除全部树</button></div>
+      <h3>人工水点</h3>
+      <div class="fields">
+        <label class="wide">水面海拔 m<input type="number" id="ws-h" value="20" step="1"></label>
+      </div>
+      <div class="row"><button class="btn sm" id="ws-mode" aria-pressed="false">在地图上点击放水点</button><button class="btn sm warn" id="ws-clear">清除全部</button></div>
+      <div class="readout" id="ws-read"></div>
+      <div class="status" id="t-status"></div>
+      <div class="row"><button class="btn warn" id="t-reset">恢复平地</button></div>
+    </aside>
+    <section class="pane" id="p2">
+      <canvas id="c2" aria-label="平面图"></canvas>
+      <div class="tag" id="tag2">平面图 · 俯视</div>
+      <div class="hint" id="hint2"></div>
+    </section>
+    <section class="pane" id="p3">
+      <canvas id="c3" aria-label="三维实景"></canvas>
+      <div class="tag" id="tag3">实景 · 3D</div>
+      <div class="edge e-t" aria-hidden="true">▲</div><div class="edge e-b" aria-hidden="true">▼</div><div class="edge e-l" aria-hidden="true">◀</div><div class="edge e-r" aria-hidden="true">▶</div>
+      <div class="fx" id="fx"><label><input type="checkbox" id="fx-sh"> 光影</label><label><input type="checkbox" id="fx-cl"> 云动</label><label>时辰 <input type="range" id="fx-hr" min="6" max="18" step="0.25" aria-label="时辰"></label></div>
+      <div class="hint" id="hint3">拖动旋转 · 滚轮缩放 · Shift 或右键拖动平移</div>
+    </section>
+  </main>
+
+  <footer class="shelf">
+    <div class="palette" id="palette"></div>
+    <button class="meter" id="meter" title="打开内存账本"></button>
+  </footer>
+</div>
+
+<aside class="ledger" id="ledger" hidden>
+  <header><h2>内存账本</h2><button class="btn" id="ledgerClose">关闭</button></header>
+
+  <h3>为什么《城市：天际线》这么吃内存</h3>
+  <ol>
+    <li><b>资产全量预载。</b>读档时把所有启用的建筑、道具、车辆、树木（含 DLC 和创意工坊订阅）一次读进内存，不管这座城用没用到。订阅越多越大，和城市规模关系不大。</li>
+    <li><b>每件资产都是“网格 + 一组位图贴图”。</b>漫反射、法线、高光、颜色遮罩、自发光各一张，另带一套 LOD 网格和 LOD 贴图。一张 1024×1024 的 RGBA 贴图不压缩是 4 MB，带 mipmap 约 5.3 MB；一栋楼三四张就是十几 MB。</li>
+    <li><b>工坊资产互不共享。</b>同一面砖墙贴图，被几十个作者各打包一份，各占一份内存。</li>
+    <li><b>内存、显存各存一份。</b>需要在 CPU 侧读写的贴图和网格，上传显卡后系统内存里的副本不会释放。</li>
+    <li><b>模拟数据定长预分配。</b>建筑 49,152、路段 36,864、节点 32,768、车辆 16,384、树 262,144、市民约 100 万的数组开局就按上限占满，空地图也一样。</li>
+    <li><b>托管堆只涨不退。</b>Unity 的 Mono 垃圾回收器很少把内存还给系统，加上各个模组自带缓存，玩得越久占得越多。</li>
+  </ol>
+  <p class="note">结论：大头是位图资产（第 1–4 条），模拟本身只是小头。所以这里的做法是干脆不用位图。</p>
+
+  <h3>这里怎么省</h3>
+  <div class="tblwrap"><table>
+    <tr><th>环节</th><th>做法</th><th>当前占用</th></tr>
+    <tr><td>资产</td><td>每件资产是一份矢量配方：若干体块的位置、尺寸、颜色。同款建筑共用一份。</td><td class="n" id="lg-assets"></td></tr>
+    <tr><td>贴图</td><td>没有。窗格、地面网格由着色器按坐标现算。</td><td class="n">0 张</td></tr>
+    <tr><td>网格</td><td>全城合并成一个顶点缓冲，每顶点 20 字节（位置 12 + 法线 4 + 颜色 4）。</td><td class="n" id="lg-verts"></td></tr>
+    <tr><td>地形</td><td>18×18 km，一张 1025×1025 的高度格（每格约 17.6 m）。网格分成 16×16 块，共用一份索引，笔刷只重建碰到的块；画的时候看不见的块跳过，远处的块降一到两档精度。树只存一张密度图，镜头附近才生成模型。平地时不分配。建筑和道路只在重建网格时查一次高度。</td><td class="n" id="lg-terr"></td></tr>
+    <tr><td>水</td><td>水面的波光每秒约 11 帧，只在有水时运行，其余不逐帧模拟。海平面是一个半透明平面。湖用“优先级洪泛”把封闭洼地填到溢出口高度，所以湖面是平的；人工水点从该点漫水，淹没连通且低于水面的格子；沟渠沿画出的线下挖，渠水的水面跟着渠底坡度走；河流是汇水量超过阈值的格子。三者都只在地形改动时解一次，湿度写进地形顶点，岸线、波纹、反光都由着色器现算，不加任何三角形。天空和云、草地纹理同样是算出来的，没有贴图。</td><td class="n" id="lg-water"></td></tr>
+    <tr><td>绘制</td><td>地形一次、城市一次、预览与水面一次。</td><td class="n">≤3 次/帧</td></tr>
+    <tr><td>渲染</td><td>默认按需重绘：画面不变就不出帧。开了“云动”或有水且开了“波光动画”时，改为每秒约 11 帧。“光影”打开时多画一遍 2048² 的阴影深度图（约 8 MB 显存），关掉即释放。</td><td class="n" id="lg-frames"></td></tr>
+    <tr><td>两个视图</td><td>平面图和实景读同一份数据，不各存一份；车间预览也复用这两块画布。</td><td class="n">1 份</td></tr>
+    <tr><td>存档</td><td>道路只存 3 个点和宽度，建筑只存资产编号、坐标、朝向。</td><td class="n" id="lg-save"></td></tr>
+    <tr id="lg-heaprow"><td>JS 堆</td><td>浏览器报告的页面总占用。</td><td class="n" id="lg-heap"></td></tr>
+  </table></div>
+  <p class="note" id="lg-compare"></p>
+</aside>

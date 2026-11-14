@@ -336,7 +336,6 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const hex2rgb = h => { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
 const fmtB = n => n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(1) + ' KB' : (n / 1048576).toFixed(2) + ' MB';
 const SHAPES = { box: '方体', gable: '双坡顶', pyr: '四棱锥', cyl: '圆柱', cone: '圆锥' };
-
 /* ───────── 资产：矢量配方 ───────── */
 const P = (s, x, z, y, w, d, h, c, o) => Object.assign({ s, x, z, y, w, d, h, c }, o || {});
 const treeAt = (x, z) => [P('cyl', x, z, 0.3, 0.8, 0.8, 2.6, '#7A5B40'), P('cone', x, z, 2.2, 5, 5, 5.5, '#3F8F56')];
@@ -378,7 +377,6 @@ function fp(a) {
   f = { w: mx * 2, d: mz * 2, h, sorted: a.parts.slice().sort((p, q) => (p.y + p.h) - (q.y + q.h)) };
   fpCache.set(a, f); return f;
 }
-
 /* ───────── 城市状态（两个视图共用的唯一一份） ───────── */
 const S = { assets: {}, roads: [], blds: [], env: { water: null, lakes: false, rivers: false, thr: 300, src: [], canals: [] } };
 const GN = 1024, VN = GN + 1, HALF = 9000, CELL = HALF * 2 / GN;  // 地形：18×18 km，1025×1025 高度格，每格约 17.6 m
@@ -408,7 +406,6 @@ function save() { const s = JSON.stringify(serialize()); saveBytes = s.length; t
 const undoStack = [];
 function pushUndo() { undoStack.push(JSON.stringify(serialize())); if (undoStack.length > 40) undoStack.shift(); }
 function undo() { const s = undoStack.pop(); if (!s) return; if (typeof s !== 'string') { if (s.canals) { S.env.canals = JSON.parse(s.canals); save(); } setTH(s.terr); return; } restore(JSON.parse(s)); syncEnvUI(); renderPalette(); changed(); }
-
 /* ───────── 道路几何：二次贝塞尔 a → c → b ───────── */
 let ptsCache = new WeakMap();
 function roadPts(r) {
@@ -546,7 +543,6 @@ function snapToRoad(b) {
   return true;
 }
 function poseAt(w) { const b = { a: ui.asset, x: w[0], z: w[1], r: ui.rot }; if (ui.snap) snapToRoad(b); return b; }
-
 /* ───────── 命中测试与工具逻辑（两个视图共用） ───────── */
 function hit(w, tol) {
   if (ui.sel && ui.sel.k === 'road') {
@@ -665,7 +661,6 @@ function rotate(dir) {
 function removeSel() {
   if (!ui.sel) return; pushUndo(); (ui.sel.k === 'bld' ? S.blds : S.roads).splice(ui.sel.i, 1); ui.sel = ui.cand = null; changed();
 }
-
 /* ───────── 网格：一个可增长的交错顶点缓冲，20 字节/顶点 ───────── */
 class Mesh {
   constructor(cap) { this.cap = cap; this.n = 0; this.u = null; this.alloc(); }
@@ -820,7 +815,6 @@ function dashLine(m, a, b, hw, step, y, col) {
   const dx = b[0] - a[0], dz = b[1] - a[1], len = Math.hypot(dx, dz); if (len < 1) return; const tx = dx / len, tz = dz / len;
   for (let d = 0; d < len; d += step * 2) { const e = Math.min(len, d + step); ribbon(m, [{ x: a[0] + tx * d, z: a[1] + tz * d, tx, tz }, { x: a[0] + tx * e, z: a[1] + tz * e, tx, tz }], hw, y, col, 255); }
 }
-
 /* ───────── 地形模块 ───────── */
 const sst = (a, b, x) => { x = clamp((x - a) / (b - a), 0, 1); return x * x * (3 - 2 * x); };
 const lift = () => TH && !shop.open ? 0.5 : 0;
@@ -1163,7 +1157,6 @@ $('#cn-mode').onclick = () => setTmode('canal');
 $('#cn-clear').onclick = () => { if (!S.env.canals.some(k => k.wet)) return; pushUndoTerr(); for (const k of S.env.canals) k.wet = 0; terrChanged(); save(); $('#t-status').textContent = '渠水已排干，渠道本身还在。'; };
 $('#ws-clear').onclick = () => { if (!S.env.src.length) return; pushUndo(); S.env.src = []; terrChanged(); save(); updateSrcRead(); };
 $('#tb-rad').addEventListener('input', req);
-
 /* ───────── 主题色 ───────── */
 const T = {};
 function readTheme() {
@@ -1171,7 +1164,6 @@ function readTheme() {
   for (const k of ['paper', 'grid', 'grid2', 'road', 'walk', 'mark', 'sky', 'ground', 'ggrid', 'win', 'lit', 'ink', 'mute', 'accent', 'sel', 'panel', 'danger', 'water', 'rock', 'snow', 'sand', 'zenith', 'cloud']) T[k] = cs.getPropertyValue('--' + k).trim();
   T.night = cs.colorScheme.includes('dark') || parseInt(T.sky.slice(1, 3), 16) < 90;
 }
-
 /* ───────── WebGL：一个着色器、两个缓冲、零贴图 ───────── */
 const c3 = $('#c3'), c2 = $('#c2'), g2 = c2.getContext('2d');
 const gl = c3.getContext('webgl2', { antialias: true, alpha: false, powerPreference: 'low-power' });
@@ -1500,7 +1492,6 @@ function draw3() {
   if (xray) { gl.enable(gl.BLEND); gl.uniform1f(U.uAlpha, 0.55); drawTerrain(); gl.disable(gl.BLEND); gl.uniform1f(U.uAlpha, 1); }   // 修隧道时地形半透明，能看见地下
   if (dyn.n) { gl.enable(gl.BLEND); gl.uniform1f(U.uAlpha, 0.62); gl.bindVertexArray(vaoD); gl.drawArrays(gl.TRIANGLES, 0, dyn.n); }
 }
-
 /* ───────── 平面图（Canvas 2D，直接读同一份状态） ───────── */
 const v2 = { cx: 0, cz: -30, s: 1.1 }, vS = { cx: 0, cz: 0, s: 8 };
 const view = () => shop.open ? vS : v2;
@@ -1613,7 +1604,6 @@ function draw2() {
   g.font = '600 12px Barlow Condensed, sans-serif'; g.textAlign = 'right'; g.fillText(m + ' m', bx + bw, by - 7);
   if (!shop.open) { g.textAlign = 'center'; g.fillText('N', bx - 18, by + 1); g.beginPath(); g.moveTo(bx - 18, by - 22); g.lineTo(bx - 22, by - 11); g.lineTo(bx - 14, by - 11); g.fill(); }
 }
-
 /* ───────── 按需渲染 ───────── */
 let raf = 0, dirtyGeom = true, frames = 0;
 function req() { if (!raf) raf = requestAnimationFrame(frame); }
@@ -1639,7 +1629,6 @@ function frame() {
   buildDyn(); draw3(); draw2();
 }
 function changed() { dirtyGeom = true; save(); req(); }
-
 /* ───────── 指针手势 ───────── */
 function gestures(el, h) {
   const pts = new Map(); let pin = null, pinched = false;
@@ -1733,7 +1722,6 @@ gestures(c3, {
   pinch(k, dx, dy) { const c = cam(); c.dist = clamp(c.dist / k, 12, 24000); const q = c.dist * 0.0017, sy = Math.sin(c.yaw), cy = Math.cos(c.yaw); c.tx += -cy * dx * q - sy * dy * q; c.tz += sy * dx * q - cy * dy * q; req(); },
 });
 c3.addEventListener('wheel', e => { e.preventDefault(); const c = cam(); c.dist = clamp(c.dist * Math.exp(e.deltaY * 0.0012), 12, 24000); req(); }, { passive: false });
-
 /* ───────── 键盘与顶栏 ───────── */
 addEventListener('keydown', e => {
   if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) && e.target.type !== 'checkbox') return;
@@ -1761,7 +1749,6 @@ $('#clearBtn').onclick = e => {
 };
 $('#ledgerBtn').onclick = $('#meter').onclick = () => { $('#ledger').hidden = !$('#ledger').hidden; updateMeter(); };
 $('#ledgerClose').onclick = () => { $('#ledger').hidden = true; };
-
 /* ───────── 资产架 ───────── */
 function renderPalette() {
   const el = $('#palette'); el.textContent = '';
@@ -1780,7 +1767,6 @@ function renderPalette() {
     el.append(c);
   }
 }
-
 /* ───────── 建造车间 ───────── */
 const scratch = new Mesh(512);
 function openShop(id) {
@@ -1913,7 +1899,6 @@ $('#aiStop').onclick = () => { if (aiCtl) aiCtl.abort(); };
   try { sample = window.claude && window.claude.use ? await window.claude.use('sample') : null; } catch (e) { sample = null; }
   aiIdle(); if (!sample) $('#aiStatus').textContent = '这里连不上 Claude。可用“随机一栋”或手动搭建。';
 })();
-
 /* ───────── 内存表 ───────── */
 function updateMeter() {
   const ab = JSON.stringify(Object.values(S.assets).map(a => a.parts)).length, na = Object.keys(S.assets).length, tb = TH ? terrGpu() : 0, nv = stat.n + (TH ? CN * CN * CV + terr.skirtN + treeM.n : 0), vb = stat.n * 20 + tb;
@@ -1928,7 +1913,6 @@ function updateMeter() {
   const mem = performance.memory; $('#lg-heaprow').hidden = !mem; if (mem) $('#lg-heap').textContent = fmtB(mem.usedJSHeapSize);
   $('#lg-compare').textContent = `对照：${na} 件资产若各配 3 张 1024² 不压缩贴图，约 ${(na * 3 * 5.33).toFixed(0)} MB；这里全部配方加整座城的网格一共 ${fmtB(ab + vb)}。`;
 }
-
 /* ───────── 示例城市 ───────── */
 function seed() {
   const R = (a, b, w) => ({ a, c: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], b, w });
@@ -1951,7 +1935,6 @@ function seed() {
     }
   } });
 }
-
 /* ───────── 启动 ───────── */
 function boot() {
   readTheme(); initGL();

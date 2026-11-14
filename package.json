@@ -1,0 +1,10 @@
+{
+  "name": "litecity",
+  "private": true,
+  "description": "LiteCity 轻量造景沙盘",
+  "license": "SEE LICENSE IN LICENSE.md",
+  "scripts": {
+    "build": "node build.mjs",
+    "check": "node build.mjs --check"
+  }
+}

@@ -1,0 +1,135 @@
+/* 布局：一屏应用。顶栏工具 → 左平面图 / 右实景 两块等宽图板 → 底部资产架。建造车间打开时在最左侧多出一列表单。 */
+:root{
+  --bg:#E3E9EC; --panel:#F5F7F8; --ink:#1B2836; --mute:#5A6B79; --line:#BFCAD2;
+  --accent:#E3A400; --accent-ink:#1B2836; --sel:#1F6FEB; --danger:#BF3F2B;
+  --paper:#EDF1F3; --grid:#D9E0E5; --grid2:#C3CED6;
+  --road:#57616C; --walk:#B4BEC6; --mark:#F6D15A;
+  --sky:#C4DDF0; --ground:#A7C196; --ggrid:#8FAE80; --win:#33465A; --lit:#FFD98A; --water:#5B9BD0; --rock:#8F8C82; --snow:#EEF2F4; --sand:#CBBF98; --zenith:#3D84D6; --cloud:#FFFFFF;
+  --f-body:"Barlow","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",sans-serif;
+  --f-num:"Barlow Condensed","PingFang SC","Microsoft YaHei",sans-serif;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0F171F; --panel:#17222D; --ink:#E3EAF0; --mute:#8798A6; --line:#2A3947;
+  --accent:#F2B622; --accent-ink:#141C24; --sel:#62A8FF; --danger:#EF6A54;
+  --paper:#121E28; --grid:#1B2A37; --grid2:#27394A;
+  --road:#6F7C89; --walk:#3B4A58; --mark:#F6D15A;
+  --sky:#162434; --ground:#263A33; --ggrid:#33493F; --win:#1B2632; --lit:#FFD98A; --water:#2C5B85; --rock:#50565A; --snow:#A3AEB8; --sand:#5B5647; --zenith:#050A14; --cloud:#34445C;
+  color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#0F171F; --panel:#17222D; --ink:#E3EAF0; --mute:#8798A6; --line:#2A3947;
+  --accent:#F2B622; --accent-ink:#141C24; --sel:#62A8FF; --danger:#EF6A54;
+  --paper:#121E28; --grid:#1B2A37; --grid2:#27394A;
+  --road:#6F7C89; --walk:#3B4A58; --mark:#F6D15A;
+  --sky:#162434; --ground:#263A33; --ggrid:#33493F; --win:#1B2632; --lit:#FFD98A; --water:#2C5B85; --rock:#50565A; --snow:#A3AEB8; --sand:#5B5647; --zenith:#050A14; --cloud:#34445C;
+  color-scheme:dark }
+
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.45;overflow:hidden}
+*{box-sizing:border-box}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--sel);outline-offset:1px}
+
+.app{height:100%;display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:8px;padding-block:8px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px}
+.brand{font-family:var(--f-num);font-weight:700;font-size:22px;letter-spacing:.04em;display:flex;align-items:baseline;gap:8px}
+.brand small{font-size:11px;font-weight:600;letter-spacing:.18em;color:var(--mute)}
+.seg{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:var(--panel)}
+.seg button{border:0;background:none;padding:6px 12px;cursor:pointer;border-right:1px solid var(--line);white-space:nowrap}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);font-weight:600}
+.seg kbd{font-family:var(--f-num);font-size:11px;opacity:.6;margin-left:4px}
+.opts{display:flex;flex-wrap:wrap;align-items:center;gap:8px;color:var(--mute)}
+.opts label{display:flex;align-items:center;gap:5px;white-space:nowrap}
+.opts select{background:var(--panel);border:1px solid var(--line);border-radius:5px;padding:4px 6px}
+.spacer{flex:1 1 0}
+.btn{border:1px solid var(--line);background:var(--panel);border-radius:6px;padding:6px 11px;cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:var(--mute)}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.btn.warn{color:var(--danger)}
+.btn:disabled{opacity:.5;cursor:default}
+.btn.sm{padding:3px 8px;font-size:12.5px}
+.btn[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+
+.stage{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:minmax(0,1fr);gap:8px;min-height:0}
+.stage.shopping{grid-template-columns:minmax(250px,310px) 1fr 1fr}
+.pane{position:relative;border:1px solid var(--line);border-radius:6px;overflow:hidden;min-height:0;min-width:0;background:var(--paper)}
+.pane canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.tag{position:absolute;left:8px;top:8px;font-family:var(--f-num);font-weight:600;letter-spacing:.08em;font-size:12px;
+  background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:2px 8px;pointer-events:none}
+.hint{position:absolute;left:8px;right:8px;bottom:8px;font-size:12.5px;color:var(--ink);pointer-events:none;
+  background:color-mix(in srgb,var(--panel) 86%,transparent);border-radius:4px;padding:4px 8px;width:fit-content;max-width:calc(100% - 16px)}
+.edge{position:absolute;pointer-events:none;display:grid;place-items:center;color:var(--ink);font-size:12px;opacity:.28;transition:opacity .15s,background .15s}
+.edge.e-t,.edge.e-b{left:46px;right:46px;height:46px} .edge.e-l,.edge.e-r{top:46px;bottom:46px;width:46px}
+.edge.e-t{top:0} .edge.e-b{bottom:0} .edge.e-l{left:0} .edge.e-r{right:0}
+.edge.on{opacity:1;background:color-mix(in srgb,var(--panel) 45%,transparent)}
+.shopping .edge,.nomouse .edge{display:none}
+@media (hover:none){.edge{display:none}}
+.fx{position:absolute;right:8px;top:8px;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:2px 10px;align-items:center;max-width:calc(100% - 110px);font-size:12.5px;
+  background:color-mix(in srgb,var(--panel) 86%,transparent);border:1px solid var(--line);border-radius:4px;padding:3px 8px}
+.fx label{display:flex;align-items:center;gap:4px;white-space:nowrap} .fx input[type=range]{width:84px}
+.shopping .fx{display:none}
+.nogl{position:absolute;inset:0;display:grid;place-items:center;padding:20px;text-align:center;color:var(--mute)}
+
+.shelf{display:flex;gap:10px;align-items:stretch;min-width:0}
+.palette{display:flex;gap:6px;overflow-x:auto;min-width:0;flex:1 1 0;padding-bottom:2px}
+.card{flex:0 0 auto;width:72px;border:1px solid var(--line);background:var(--panel);border-radius:6px;padding:5px 4px 4px;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;gap:2px;position:relative}
+.card canvas{width:44px;height:44px}
+.card span{font-size:12px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.card .ed{position:absolute;right:2px;top:2px;border:0;background:none;color:var(--mute);cursor:pointer;font-size:12px;padding:2px 4px;border-radius:3px}
+.card .ed:hover{color:var(--ink);background:var(--bg)}
+.card.new{justify-content:center;border-style:dashed;color:var(--mute);font-size:12.5px;gap:0}
+.card.new b{font-family:var(--f-num);font-size:26px;line-height:1;color:var(--accent)}
+.meter{flex:0 0 auto;display:grid;grid-template-columns:auto auto;gap:0 10px;align-content:center;font-family:var(--f-num);font-size:13px;
+  font-variant-numeric:tabular-nums;border:1px solid var(--line);border-radius:6px;padding:4px 10px;background:var(--panel);cursor:pointer;text-align:left}
+.meter dt{color:var(--mute)} .meter dd{margin:0;text-align:right;font-weight:600}
+
+/* 建造车间 */
+.shop{border:1px solid var(--line);border-radius:6px;background:var(--panel);min-height:0;min-width:0;overflow:auto;padding:10px;display:flex;flex-direction:column;gap:10px}
+.shop h2{font-family:var(--f-num);font-size:18px;letter-spacing:.06em;margin:0}
+.shop h3{font-size:12px;letter-spacing:.1em;color:var(--mute);margin:0;font-weight:600}
+.shop input[type=text],.shop textarea,.shop input[type=number],.shop select{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:5px;padding:5px 7px;min-width:0}
+.shop textarea{resize:vertical;min-height:52px}
+.shop input[type=file]{width:100%;font-size:12.5px}
+.row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.status{font-size:12.5px;color:var(--mute);min-height:1.4em}
+.parts{display:flex;flex-direction:column;gap:3px;max-height:150px;overflow:auto}
+.part{display:flex;align-items:center;gap:7px;border:1px solid transparent;border-radius:4px;padding:2px 5px;cursor:pointer;background:none;text-align:left;font-size:12.5px}
+.part i{width:12px;height:12px;border-radius:2px;border:1px solid rgba(0,0,0,.3);flex:0 0 auto}
+.part em{font-style:normal;color:var(--mute);font-family:var(--f-num);margin-left:auto;font-variant-numeric:tabular-nums}
+.part[aria-pressed="true"]{border-color:var(--accent);background:var(--bg)}
+.fields{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.fields label{display:flex;flex-direction:column;gap:2px;font-size:11.5px;color:var(--mute)}
+.fields .wide{grid-column:span 2}
+.fields input[type=color]{width:100%;height:28px;padding:0;border:1px solid var(--line);border-radius:5px;background:none}
+.fields .chk{flex-direction:row;align-items:center;gap:5px;grid-column:span 2;color:var(--ink);font-size:12.5px}
+.readout{font-family:var(--f-num);font-size:13px;color:var(--mute);font-variant-numeric:tabular-nums}
+
+/* 内存账本 */
+.ledger{position:fixed;top:0;right:0;bottom:0;width:min(470px,100%);background:var(--panel);border-left:1px solid var(--line);z-index:20;overflow:auto;
+  padding:calc(14px + env(safe-area-inset-top,0px)) max(18px,env(safe-area-inset-right,0px)) calc(18px + env(safe-area-inset-bottom,0px)) 18px;
+  box-shadow:-12px 0 30px rgba(0,0,0,.18)}
+.ledger header{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.ledger h2{font-family:var(--f-num);font-size:24px;letter-spacing:.05em;margin:0}
+.ledger h3{font-size:15px;margin:18px 0 6px;text-wrap:balance}
+.ledger p{margin:6px 0;color:var(--ink)}
+.ledger ol{margin:6px 0;padding-left:20px;display:flex;flex-direction:column;gap:7px}
+.ledger li b{font-weight:600}
+.ledger .note{color:var(--mute);font-size:12.5px}
+.tblwrap{overflow-x:auto}
+.ledger table{border-collapse:collapse;width:100%;font-size:13px}
+.ledger th,.ledger td{text-align:left;padding:5px 8px 5px 0;border-bottom:1px solid var(--line);vertical-align:top}
+.ledger th{color:var(--mute);font-weight:600;font-size:12px}
+.ledger td.n{font-family:var(--f-num);font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap}
+
+@media (max-width:760px){
+  .stage{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) minmax(0,1fr)}
+  .stage.shopping{grid-template-columns:1fr;grid-template-rows:minmax(0,1.25fr) minmax(0,1fr) minmax(0,1fr)}
+  .seg kbd{display:none}
+  .meter{display:none}
+  .brand small{display:none}
+  .hint{font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+}
