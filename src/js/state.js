@@ -20,6 +20,7 @@ function restore(d) {
   if (!S.assets[ui.asset]) ui.asset = 'house';
   const e = d.env || {}; S.env = { water: Number.isFinite(e.water) ? e.water : null, lakes: e.lakes != null ? !!e.lakes : !!e.rivers, rivers: !!e.rivers, thr: clamp(+e.thr || 300, 5, 50000),
     src: (Array.isArray(e.src) ? e.src : []).filter(q => q && isFinite(q.x) && isFinite(q.z) && isFinite(q.h)).slice(0, 50).map(q => ({ x: +q.x, z: +q.z, h: +q.h })),
+    jx: e.jx && typeof e.jx === 'object' && !Array.isArray(e.jx) ? e.jx : {},
     canals: (Array.isArray(e.canals) ? e.canals : []).filter(k => k && Array.isArray(k.a) && Array.isArray(k.b) && Array.isArray(k.c) && [k.w, k.d, k.z0, k.z1].every(Number.isFinite)).slice(0, 200) };
   ui.sel = ui.cand = null; ui.rs = ui.rc = null; ui.drag = null; terr.full = true; terrDirty = true;
 }

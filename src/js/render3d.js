@@ -136,6 +136,9 @@ function buildDyn() {
         const p0 = P0(a0, r), p1 = P0(a1, r), p2 = P0(a1, r + t), p3 = P0(a0, r + t); tri(m, p0, p1, p2, acc, 255); tri(m, p0, p2, p3, acc, 255);
       }
     }
+    if (sim.on && sim.heat && sim.net && !sim.dirty) { const net = sim.net;    // 拥堵热力：在有车的行车方向上铺一条半透明的色带
+      for (let rd = 0; rd < net.n2; rd++) { if (!net.rdN[rd] || (!net.cnt[rd] && net.cong[rd] > 0.93)) continue; const r = net.roads[rd >> 1], l0 = net.rdL0[rd], o0 = net.laneOff[l0], o1 = net.laneOff[l0 + net.rdN[rd] - 1];
+        strip(m, net.pts[rd >> 1], Math.min(o0, o1) - 1.6, Math.max(o0, o1) + 1.6, (r.h ? 0.35 : lift()) + 0.3, heatCol(net.cong[rd]), 255, r.h ? p => hAt(r.h, p.t) : null); } }
     if (ui.tool === 'build' && ui.hover && !ui.drag) emitAsset(m, S.assets[ui.asset], poseAt(ui.hover));
     if (pathTool() && ui.hover) {
       const p = pathPt(ui.hover);

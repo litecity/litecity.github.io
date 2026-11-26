@@ -22,6 +22,7 @@ function addRoad(a, b, c) {
   S.roads.push(r); normalizeRoads([r]); const i = S.roads.indexOf(r); ui.sel = i >= 0 ? { k: 'road', i } : null; changed();
 }
 function press(w, forced) {
+  if (ui.tool === 'junction') { let best = null, bd = Infinity; for (const n of J.nodes) { const d = Math.hypot(n.x - w[0], n.z - w[1]); if (d < n.R + 10 && d < bd) { bd = d; best = n; } } ui.node = best ? nodeKeyOf(best) : null; req(); return false; }
   if (ui.tool === 'terrain' && ui.tmode === 'water') {                           // 点一下放水点，点在已有水点上则删除
     pushUndo(); const i = S.env.src.findIndex(q => dist2([q.x, q.z], w) < ui.tol * 2);
     if (i >= 0) S.env.src.splice(i, 1); else if (S.env.src.length < 50) S.env.src.push({ x: Math.round(w[0]), z: Math.round(w[1]), h: numIn('ws-h', 20, -500, 3000) });
@@ -99,7 +100,7 @@ function release(w, isDrag) {
   req();
 }
 function setTool(t) {
-  ui.tool = t; ui.rs = ui.rc = null; if (t !== 'select') ui.sel = ui.cand = null;
+  ui.tool = t; ui.rs = ui.rc = null; if (t !== 'select') ui.sel = ui.cand = null; if (t !== 'junction') ui.node = null;
   $('#terra').hidden = t !== 'terrain'; $('#stage').classList.toggle('shopping', t === 'terrain'); if (t === 'terrain') updateTerrRead();
   document.querySelectorAll('#tools button').forEach(b => b.setAttribute('aria-pressed', b.dataset.tool === t));
   document.querySelectorAll('#palette .card[data-id]').forEach(c => c.setAttribute('aria-pressed', t === 'build' && c.dataset.id === ui.asset));
@@ -107,7 +108,7 @@ function setTool(t) {
 }
 function setHint() {
   const H = { select: '点一下预选（虚线框），再点一下才选中。选中的路可拖菱形手柄调弯、拖端点改走向；选中的建筑可拖动，R 旋转，Delete 删除。双击空地让实景飞过去。',
-    road: '直线：按住拖出或点两下。自由曲线：点三下。贴地的路会自动平整地形；“路面”选桥或隧道时，路在两端之间架空或穿山，同一高度相交才生成路口。选隧道时地形半透明。', build: '在任意一侧点击放置。靠近道路会自动贴边并面向道路，R 旋转 15°。', erase: '点击道路或建筑即可拆除。',
+    road: '直线：按住拖出或点两下。自由曲线：点三下。贴地的路会自动平整地形；“路面”选桥或隧道时，路在两端之间架空或穿山，同一高度相交才生成路口。选隧道时地形半透明。', build: '在任意一侧点击放置。靠近道路会自动贴边并面向道路，R 旋转 15°。', erase: '点击道路或建筑即可拆除。', junction: '点一个三岔以上的路口：设红绿灯的每一步放行哪些方向，或给各进口立主路、让行标志。',
     terrain: '按住拖动，把地面抹到目标海拔（挖湖就填负数）。按 E 吸取光标处海拔。' };
   $('#hint2').textContent = shop.open ? '车间平面：点选并拖动部件。下方是正面（朝路的一侧）。' : ui.tool === 'terrain' && ui.tmode === 'tree' ? '按住拖动刷树；勾“擦除”则刷掉。远处显示为林地的深色，镜头拉近才出现一棵棵树。' : ui.tool === 'terrain' && ui.tmode === 'canal' ? '像修路一样画沟渠：直线拖出或点两下，自由曲线点三下（顶栏“画法”）。渠底从起点向终点一路下降，上游陡、下游缓。' : ui.tool === 'terrain' && ui.tmode === 'water' ? '点一下放水点：与它连通、低于水面海拔的地方会淹成一片平的水面。再点水点可删除。按 E 取光标处海拔 +5 m。' : H[ui.tool];
   $('#tag2').textContent = shop.open ? '车间 · 俯视' : '平面图 · 俯视';

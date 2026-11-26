@@ -8,10 +8,10 @@
    两种连接：① 车道首尾对齐（位置差不到 1.7 m、方向一致）→ 直接驶入，匝道分流/合流就是这种；
             ② 路的端点汇在同一个路口 → 进口的车道可以去别的路的出口车道，三岔以上有红绿灯。 */
 const SIM_CAP = 20000, CAR_GAP = 6.5;
-const sim = { on: false, speed: 20, t: 8 * 3600, acc: 0, dAcc: 0, net: null, sig: '', dirty: true, nCar: 0, nPed: 0, inCity: 0, outCity: 0, stuck: 0, lost: 0, need: null, outAcc: null, bIn: null, bOut: null, bQ: null, inst: null, instN: 0 };
+const sim = { on: false, heat: true, tick: 0, speed: 20, t: 8 * 3600, acc: 0, dAcc: 0, net: null, sig: '', dirty: true, nCar: 0, nPed: 0, inCity: 0, outCity: 0, stuck: 0, lost: 0, need: null, outAcc: null, bIn: null, bOut: null, bQ: null, inst: null, instN: 0 };
 const aK = new Uint8Array(SIM_CAP), aRd = new Int32Array(SIM_CAP), aLn = new Int8Array(SIM_CAP), aS = new Float32Array(SIM_CAP), aV = new Float32Array(SIM_CAP),
   aLead = new Int32Array(SIM_CAP), aFoll = new Int32Array(SIM_CAP), aDst = new Int32Array(SIM_CAP), aDS = new Float32Array(SIM_CAP), aGate = new Int32Array(SIM_CAP), aB = new Int32Array(SIM_CAP),
-  aNx = new Int32Array(SIM_CAP), aLat = new Float32Array(SIM_CAP), aCol = new Uint8Array(SIM_CAP), aWait = new Float32Array(SIM_CAP), aArm = new Uint8Array(SIM_CAP), aFF = new Array(SIM_CAP);
+  aNx = new Int32Array(SIM_CAP), aLat = new Float32Array(SIM_CAP), aCol = new Uint8Array(SIM_CAP), aWait = new Float32Array(SIM_CAP), aArm = new Uint8Array(SIM_CAP), aCd = new Float32Array(SIM_CAP), aFF = new Array(SIM_CAP);
 let aFree = [], aTop = 0;                                                        // 空位栈；aTop = 用到过的最大下标 + 1
 
 // ── 人流曲线：24 个小时各一个 0–1 的系数，乘上峰值就是该小时的人数/时
@@ -28,14 +28,21 @@ function flowOf(b) {
 }
 const simHour = () => sim.on ? (sim.t / 3600) % 24 : skyState().hour;
 
+// 路口进口的编号：按驶入方向每 22.5° 一档（路的下标会变，方向不会），用来存用户设的信号和让行标志
+const armKey = (hx, hz) => ((Math.round(Math.atan2(hz, hx) / (Math.PI / 8)) % 16) + 16) % 16;
+const nodeKeyOf = n => Math.round(n.x * 2) + ',' + Math.round(n.z * 2);
+function autoSteps(arms) {                                                       // 自动方案：大致同一条直线上的进口同时放行，两相位，中间 3 秒全红。位：1 直行 2 左转 4 右转
+  const ph = a => Math.round(Math.atan2(a.hz, a.hx) / (Math.PI / 2)) & 1;
+  return [0, -1, 1, -1].map(p => { const g = {}; for (const a of arms) g[a.ak] = p >= 0 && ph(a) === p ? 7 : 0; return { d: p < 0 ? 3 : 20, g }; });
+}
 // ── 把路网编译成紧凑的数组
 function simCompile() {
   const R = S.roads.length, n2 = R * 2, pts = S.roads.map(roadPts), infos = S.roads.map(laneInfo);
-  const rdLen = new Float32Array(n2), rdV = new Float32Array(n2), rdN = new Uint8Array(n2), rdL0 = new Int32Array(n2), rdSig = new Int32Array(n2).fill(-1), rdPh = new Uint8Array(n2), walk = new Uint8Array(R);
-  const laneOff = []; const cTo = [], cMask = [], cMap = [], cJ = [], pTo = [];
+  const rdLen = new Float32Array(n2), rdV = new Float32Array(n2), rdN = new Uint8Array(n2), rdL0 = new Int32Array(n2), walk = new Uint8Array(R);
+  const laneOff = []; const cTo = [], cMask = [], cMap = [], cJ = [], cT = [], yl = [], pTo = [];
   for (let i = 0; i < R; i++) {
     const li = infos[i], v = roadSpeed(S.roads[i]); walk[i] = li.wl || li.wr ? 1 : 0;
-    for (let d = 0; d < 2; d++) { const rd = i * 2 + d, ls = d ? li.back.slice().reverse() : li.fwd; rdLen[rd] = Math.max(1, pts[i].len); rdV[rd] = v; rdN[rd] = ls.length; rdL0[rd] = laneOff.length; for (const l of ls) laneOff.push(l.o); cTo.push([]); cMask.push([]); cMap.push([]); cJ.push([]); pTo.push([]); }
+    for (let d = 0; d < 2; d++) { const rd = i * 2 + d, ls = d ? li.back.slice().reverse() : li.fwd; rdLen[rd] = Math.max(1, pts[i].len); rdV[rd] = v; rdN[rd] = ls.length; rdL0[rd] = laneOff.length; for (const l of ls) laneOff.push(l.o); cTo.push([]); cMask.push([]); cMap.push([]); cJ.push([]); cT.push([]); yl.push([]); pTo.push([]); }
   }
   // 每条路两端的位置、走向和高度
   const endOf = (i, e) => { const p = e ? pts[i][pts[i].length - 1] : pts[i][0], r = S.roads[i]; return { x: p.x, z: p.z, tx: p.tx, tz: p.tz, y: roadYAt(r, e ? 1 : 0, p.x, p.z) }; };
@@ -45,7 +52,7 @@ function simCompile() {
   const grid = new Map(), gk = (x, z) => Math.floor(x / 4) * 73856093 ^ Math.floor(z / 4) * 19349663;
   for (let i = 0; i < R; i++) for (let d = 0; d < 2; d++) { const rd = i * 2 + d, e = d ? 1 : 0, q = ends[i][e], sg = d ? -1 : 1;
     for (let k = 0; k < rdN[rd]; k++) { const p = lanePos(i, e, laneOff[rdL0[rd] + k]), key = gk(p[0], p[1]); let l = grid.get(key); if (!l) grid.set(key, l = []); l.push({ rd, k, x: p[0], z: p[1], y: q.y, hx: q.tx * sg, hz: q.tz * sg }); } }
-  const link = (from, k, to, tk, junction) => { let c = cTo[from].indexOf(to); if (c < 0) { c = cTo[from].length; cTo[from].push(to); cMask[from].push(0); cMap[from].push(new Int8Array(rdN[from]).fill(-1)); cJ[from].push(junction ? 1 : 0); } cMask[from][c] |= 1 << k; cMap[from][c][k] = tk; };
+  const link = (from, k, to, tk, junction, turn) => { let c = cTo[from].indexOf(to); if (c < 0) { c = cTo[from].length; cTo[from].push(to); cMask[from].push(0); cMap[from].push(new Int8Array(rdN[from]).fill(-1)); cJ[from].push(junction ? 1 : 0); cT[from].push(turn | 0); yl[from].push(null); } cMask[from][c] |= 1 << k; cMap[from][c][k] = tk; };
   for (let i = 0; i < R; i++) for (let d = 0; d < 2; d++) { const rd = i * 2 + d, e = d ? 0 : 1, q = ends[i][e], sg = d ? -1 : 1;
     for (let k = 0; k < rdN[rd]; k++) { const p = lanePos(i, e, laneOff[rdL0[rd] + k]);
       for (let gx = -1; gx <= 1; gx++) for (let gz = -1; gz <= 1; gz++) { const l = grid.get(gk(p[0] + gx * 4, p[1] + gz * 4)); if (!l) continue;
@@ -53,13 +60,29 @@ function simCompile() {
   // ② 路口：端点落在同一处、高度相近的路
   const nodeMap = new Map();
   for (let i = 0; i < R; i++) for (let e = 0; e < 2; e++) { const q = ends[i][e], key = Math.round(q.x * 2) + ',' + Math.round(q.z * 2); let l = nodeMap.get(key); if (!l) nodeMap.set(key, l = []); l.push({ i, e, y: q.y }); }
-  let nodeId = 0;
+  // 每个三岔以上的路口记下：各进口、让行等级、信号步骤（自动两相位，或用户在“路口”工具里编的定时灯）
+  const nodes = [], rdNode = new Int32Array(n2).fill(-1), nodeByKey = new Map(), jx = S.env.jx || {};
+  const appr = (i, e) => { const q = ends[i][e], sg = e ? 1 : -1; return [q.tx * sg, q.tz * sg]; };                 // 驶入路口的方向
   for (const l of nodeMap.values()) { l.sort((a, b) => a.y - b.y); let g = [l[0]]; const flush = () => {
-      if (g.length >= 2) { const id = nodeId++; let crossing = false;
-        for (const A of g) { const from = A.i * 2 + (A.e ? 0 : 1); if (!rdN[from]) continue;
-          for (const B of g) { if (B === A) continue; const to = B.i * 2 + (B.e ? 1 : 0); if (!rdN[to] || cTo[from].includes(to)) continue; crossing = true;
-            for (let k = 0; k < rdN[from]; k++) link(from, k, to, rdN[from] > 1 ? Math.round(k / (rdN[from] - 1) * (rdN[to] - 1)) : (rdN[to] - 1) >> 1, true); } }
-        if (g.length >= 3 && crossing) for (const A of g) { const from = A.i * 2 + (A.e ? 0 : 1), q = ends[A.i][A.e]; rdSig[from] = id; rdPh[from] = Math.round(Math.atan2(q.tz, q.tx) / (Math.PI / 2)) & 1; }   // 红绿灯：大致同一条直线上的进口同一相位
+      if (g.length >= 2) { let made = 0;
+        for (const A of g) { const from = A.i * 2 + (A.e ? 0 : 1); if (!rdN[from]) continue; const hA = appr(A.i, A.e);
+          for (const B of g) { if (B === A) continue; const to = B.i * 2 + (B.e ? 1 : 0); if (!rdN[to] || cTo[from].includes(to)) continue; made++;
+            const hB = appr(B.i, B.e), side = hB[0] * hA[1] - hB[1] * hA[0], turn = side > 0.35 ? 1 : side < -0.35 ? 2 : 0;           // 驶出方向在右手边 = 右转(1)，左手边 = 左转(2)
+            for (let k = 0; k < rdN[from]; k++) link(from, k, to, rdN[from] > 1 ? Math.round(k / (rdN[from] - 1) * (rdN[to] - 1)) : (rdN[to] - 1) >> 1, true, turn); } }
+        if (g.length >= 3 && made) {
+          const q0 = ends[g[0].i][g[0].e], key = Math.round(q0.x * 2) + ',' + Math.round(q0.z * 2), cfg = jx[key] || {}, id = nodes.length;
+          const arms = g.map(A => { const rd = A.i * 2 + (A.e ? 0 : 1), h = appr(A.i, A.e), q = ends[A.i][A.e]; return { rd, hx: h[0], hz: h[1], ak: armKey(h[0], h[1]), x: q.x, z: q.z, has: rdN[rd] > 0, rank: rdV[rd] * 10 + rdN[rd] + rdN[rd ^ 1] }; });
+          const top = Math.max(...arms.map(a => a.rank)), flat = arms.every(a => a.rank === top);
+          for (const a of arms) { const p = cfg.pri && cfg.pri[a.ak]; a.pri = p >= 1 && p <= 3 ? p : flat || a.rank === top ? 1 : 2; if (a.has) rdNode[a.rd] = id; }   // 没设标志时：路更宽更快的一方是主路
+          let steps = null; const mode = cfg.m || 'auto';
+          if (mode === 'timed' && Array.isArray(cfg.st) && cfg.st.length) steps = cfg.st.map(s => ({ d: clamp(+s.d || 10, 1, 600), g: new Map(arms.map(a => [a.rd, (s.g && s.g[a.ak]) | 0])) }));
+          else if (mode !== 'none') steps = autoSteps(arms).map(s => ({ d: s.d, g: new Map(arms.map(a => [a.rd, s.g[a.ak] | 0])) }));
+          let cyc = 0; if (steps) for (const s of steps) cyc += s.d;
+          nodes.push({ key, arms, steps, cyc, off: id * 7 }); nodeByKey.set(key, id);
+          for (const a of arms) if (a.has) cTo[a.rd].forEach((to, c) => { if (!cJ[a.rd][c]) return; const list = [];                 // 让行：左转让对向；无信号时次路让主路
+            for (const b of arms) { if (b === a || !b.has) continue; if ((cT[a.rd][c] === 2 && a.hx * b.hx + a.hz * b.hz < -0.6) || (!steps && b.pri < a.pri)) list.push(b.rd); }
+            yl[a.rd][c] = list; });
+        }
       } g = []; };
     for (let j = 1; j < l.length; j++) { if (l[j].y - l[j - 1].y > 2.5) flush(); g.push(l[j]); } flush(); }
   // 行人：有人行道的路端点挨得近就能走过去
@@ -79,7 +102,7 @@ function simCompile() {
     for (let i = 0; i < R; i++) { const bb = pts[i].bb; if (bl.x < bb[0] - 90 || bl.x > bb[2] + 90 || bl.z < bb[1] - 90 || bl.z > bb[3] + 90 || (!rdN[i * 2] && !rdN[i * 2 + 1] && !walk[i])) continue; const n = nearRoad(S.roads[i], bl.x, bl.z), d = n.d - infos[i].w / 2; if (d < best) { best = d; bn = n; bi = i; } }
     if (bi >= 0) { bRoad[b] = bi; bS[b] = clamp(bn.t, 0.02, 0.98) * rdLen[bi * 2]; } }
   const laneHead = new Int32Array(laneOff.length).fill(-1), laneTail = new Int32Array(laneOff.length).fill(-1);
-  return { R, n2, pts, infos, roads: S.roads.slice(), rdLen, rdV, rdN, rdL0, rdSig, rdPh, walk, laneOff: Float32Array.from(laneOff), laneHead, laneTail, cTo, cMask, cMap, cJ, pTo, cIn, pIn, gateOut, gateIn, gatePos, gateInPos, B, bRoad, bS, fi, fo, sh, ff: new Map() };
+  return { R, n2, pts, infos, roads: S.roads.slice(), rdLen, rdV, rdN, rdL0, rdNode, nodes, nodeByKey, cT, yl, cong: new Float32Array(n2).fill(1), cnt: new Uint16Array(n2), vs: new Float32Array(n2), walk, laneOff: Float32Array.from(laneOff), laneHead, laneTail, cTo, cMask, cMap, cJ, pTo, cIn, pIn, gateOut, gateIn, gatePos, gateInPos, B, bRoad, bS, fi, fo, sh, ff: new Map() };
 }
 function simSig() { let h = S.roads.length * 7919; for (const r of S.roads) { h = (h * 31 + r.a[0] * 3 + r.a[1] * 5 + r.b[0] * 7 + r.b[1] * 11 + r.c[0] * 13 + r.c[1] * 17 + r.ln.length * 19 + (r.m | 0)) % 2147483647; for (let i = 0; i < r.ln.length; i++) h = (h * 33 + r.ln.charCodeAt(i)) % 2147483647; } return h + '|' + S.blds.length; }
 function simReset() { aK.fill(0); aFree = []; aTop = 0; sim.nCar = sim.nPed = 0; if (sim.net) { sim.net.laneHead.fill(-1); sim.net.laneTail.fill(-1); } }
@@ -161,7 +184,23 @@ function simDemand(dt) {
   }
 }
 // ── 前进一步
-function simGreen(rd) { const net = sim.net, nd = net.rdSig[rd]; if (nd < 0) return true; const ph = (sim.t + nd * 7) % 44; return (ph < 20 ? 0 : ph < 22 ? -1 : ph < 42 ? 1 : -1) === net.rdPh[rd]; }
+function simStepOf(node) { let t = (sim.t + node.off) % node.cyc; for (let i = 0; i < node.steps.length; i++) { if (t < node.steps[i].d) return i; t -= node.steps[i].d; } return 0; }
+function simGreen(nd, rd, turn) { const node = sim.net.nodes[nd]; if (!node.steps) return true; return (node.steps[simStepOf(node)].g.get(rd) | 0) >> (turn === 0 ? 0 : turn === 2 ? 1 : 2) & 1; }
+function simYield(rd, c, nd) {                                                   // 要让的那些进口上，有没有马上要进路口的车
+  const net = sim.net, list = net.yl[rd][c]; if (!list || !list.length) return false; const left = net.cT[rd][c] === 2, node = net.nodes[nd];
+  for (const p of list) { const l0 = net.rdL0[p], L = net.rdLen[p];
+    for (let k = 0; k < net.rdN[p]; k++) { const h = net.laneHead[l0 + k]; if (h < 0) continue; const rm = L - aS[h]; if (rm > 70) continue;
+      const ch = net.cTo[p].indexOf(aNx[h]), th = ch >= 0 ? net.cT[p][ch] : 0, v = aV[h];
+      if ((left && th === 2) || (node.steps && !simGreen(nd, p, th))) continue;   // 对向也左转不冲突；对方是红灯不用让
+      if (v < 1 ? rm < 5 && !!node.steps : rm / v < 4.5) return true; } }
+  return false;
+}
+function simChange(i, rd, k, minF) {                                             // 变道：从本车道队列摘下，按位置插进第 k 条车道；前后空档不够就不变
+  const net = sim.net, g = net.rdL0[rd] + k, s = aS[i]; let p = net.laneHead[g], prev = -1; while (p >= 0 && aS[p] > s) { prev = p; p = aFoll[p]; }
+  if (prev >= 0 && aS[prev] - s < Math.max(minF, CAR_GAP + 1 + Math.max(0, (aV[i] - aV[prev]) * 1.2))) return false;
+  if (p >= 0 && s - aS[p] < CAR_GAP + 1 + Math.max(0, (aV[p] - aV[i]) * 1.2)) return false;
+  simUnlink(i); aLn[i] = k; aLead[i] = prev; aFoll[i] = p; if (prev >= 0) aFoll[prev] = i; else net.laneHead[g] = i; if (p >= 0) aLead[p] = i; else net.laneTail[g] = i; return true;
+}
 function simStep(dt) {
   const net = sim.net, rdLen = net.rdLen, rdV = net.rdV, laneOff = net.laneOff, rdL0 = net.rdL0;
   for (let i = 0; i < aTop; i++) {
@@ -173,14 +212,25 @@ function simStep(dt) {
       aS[i] = s; continue;
     }
     if (onDest && s >= sd - 1) { simArrive(i); continue; }
-    const lead = aLead[i], room = sd - s; let v = aV[i], vt = rdV[rd];
+    let lead = aLead[i]; const room = sd - s; let v = aV[i], vt = rdV[rd];
+    if (((sim.tick + i) & 3) === 0 && net.rdN[rd] > 1) {                         // 每 2 秒想一次要不要变道
+      if (aCd[i] > 0) aCd[i] -= 2;
+      else { const n = net.rdN[rd], nx = aNx[i], c = nx >= 0 ? net.cTo[rd].indexOf(nx) : -1, mask = c >= 0 ? net.cMask[rd][c] : (1 << n) - 1, ln = aLn[i]; let done = false;
+        if (!(mask >> ln & 1)) { let bd = 99, k2 = -1; for (let k = 0; k < n; k++) if ((mask >> k & 1) && Math.abs(k - ln) < bd) { bd = Math.abs(k - ln); k2 = ln + Math.sign(k - ln); } done = k2 >= 0 && simChange(i, rd, k2, 0); }   // 必须变：朝能去下一条路的车道挪一条
+        else if (lead >= 0 && aV[lead] < rdV[rd] * 0.6 && aS[lead] - s < 30 && room > 90) { const need = aS[lead] - s + 12;                                                   // 值得变：前车慢，旁边前方更空
+          for (const k2 of [ln - 1, ln + 1]) if (!done && k2 >= 0 && k2 < n && ((mask >> k2 & 1) || room > 400)) done = simChange(i, rd, k2, need); }
+        if (done) { aCd[i] = 4; lead = aLead[i]; } }
+    }
     if (lead >= 0) { const gap = aS[lead] - s - CAR_GAP; vt = Math.min(vt, Math.max(0, aV[lead] + (gap - 1.5) / 1.4)); }   // 跟车：间距越小越慢
     else if (!onDest && room < 70) {
       const nx = aNx[i]; let blocked = false, tl = -1;
       if (nx < 0) { if (rd === aGate[i]) { if (room < 1) { simFreeAgent(i); continue; } } else blocked = true; }
-      else { const c = net.cTo[rd].indexOf(nx), m = c >= 0 ? net.cMap[rd][c][aLn[i]] : -1; tl = simPickLane(nx, simNext(i, nx), m < 0 ? aLn[i] : m);
-        const tail = net.laneTail[rdL0[nx] + tl]; blocked = !simGreen(rd) || (tail >= 0 && aS[tail] < CAR_GAP + 1);
-        if (c >= 0 && net.cJ[rd][c] && room < 30) vt = Math.min(vt, 9);                                               // 过路口减速
+      else { const c = net.cTo[rd].indexOf(nx), jn = c >= 0 && net.cJ[rd][c], m = c >= 0 ? net.cMap[rd][c][aLn[i]] : -1;
+        if (c >= 0 && !(net.cMask[rd][c] >> aLn[i] & 1) && aWait[i] < 15) blocked = true;                             // 不在能去下一条路的车道上：得先变道（实在并不过去，停 15 秒后放行）
+        else { tl = jn || m < 0 ? simPickLane(nx, simNext(i, nx), m < 0 ? aLn[i] : m) : m;
+          const tail = net.laneTail[rdL0[nx] + tl], nd = net.rdNode[rd]; blocked = tail >= 0 && aS[tail] < CAR_GAP + 1;
+          if (!blocked && jn && nd >= 0) blocked = !simGreen(nd, rd, net.cT[rd][c]) || (room < 30 && aWait[i] < 25 && simYield(rd, c, nd)); }   // 红灯，或者该让的车快到了
+        if (jn && room < 30) vt = Math.min(vt, 9);                                                                    // 过路口减速
         if (!blocked && room < 0.6 + v * dt) {                                   // 驶入下一条路：从本车道队首摘下，挂到新车道队尾
           simUnlink(i); const g = rdL0[nx] + tl, t0 = net.laneTail[g]; aLead[i] = t0; aFoll[i] = -1; if (t0 >= 0) aFoll[t0] = i; else net.laneHead[g] = i; net.laneTail[g] = i;
           aRd[i] = nx; aLn[i] = tl; aS[i] = 0; aArm[i] = 1; aWait[i] = 0; aNx[i] = (aDS[i] >= 0 && (nx >> 1) === aDst[i]) || nx === aGate[i] ? -1 : simNext(i, nx); continue; } }
@@ -199,12 +249,12 @@ const CAR_COL = [[196, 60, 52], [232, 232, 228], [52, 60, 72], [58, 110, 180], [
 function simFrame(realDt) {
   if (!sim.on) return; if (sim.dirty && !ui.drag) simRebuild(); if (!sim.net) return;
   sim.acc += Math.min(realDt, 0.1) * sim.speed; let n = 0;
-  while (sim.acc >= 0.5 && n++ < 60) { sim.acc -= 0.5; sim.t += 0.5; sim.dAcc += 0.5; if (sim.dAcc >= 2) { simDemand(sim.dAcc); sim.dAcc = 0; } simStep(0.5); }
+  while (sim.acc >= 0.5 && n++ < 60) { sim.acc -= 0.5; sim.t += 0.5; sim.tick++; sim.dAcc += 0.5; if (sim.dAcc >= 2) { simDemand(sim.dAcc); sim.dAcc = 0; } simStep(0.5); }
   if (n >= 60) sim.acc = 0;
   if (!sim.inst) { sim.buf = new ArrayBuffer(SIM_CAP * 2 * 20); sim.inst = new Float32Array(sim.buf); sim.instU = new Uint8Array(sim.buf); }
-  const net = sim.net, F = sim.inst, U8 = sim.instU; let c = 0;
+  const net = sim.net, F = sim.inst, U8 = sim.instU; let c = 0; net.cnt.fill(0); net.vs.fill(0);
   for (let i = 0; i < aTop; i++) {
-    const k = aK[i]; if (!k) continue; const rd = aRd[i], r = net.roads[rd >> 1], pts = net.pts[rd >> 1], L = pts.len, sr = clamp((rd & 1) ? L - aS[i] : aS[i], 0, L);
+    const k = aK[i]; if (!k) continue; const rd = aRd[i], r = net.roads[rd >> 1], pts = net.pts[rd >> 1], L = pts.len; if (k === 1) { net.cnt[rd]++; net.vs[rd] += aV[i]; } const sr = clamp((rd & 1) ? L - aS[i] : aS[i], 0, L);
     let lo = 0, hi = pts.length - 1; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (pts[m].s <= sr) lo = m; else hi = m; }
     const a = pts[lo], b = pts[hi], l = (b.s - a.s) || 1, t = (sr - a.s) / l, tx = (b.x - a.x) / l, tz = (b.z - a.z) / l, o = aLat[i], x = a.x + (b.x - a.x) * t - tz * o, z = a.z + (b.z - a.z) * t + tx * o;
     const y = (r.h ? hAt(r.h, a.t + (b.t - a.t) * t) + 0.4 : H(x, z) + lift() + 0.2) + (k === 2 && (net.infos[rd >> 1].wl || net.infos[rd >> 1].wr) ? 0.12 : 0), hd = (rd & 1) ? Math.atan2(-tz, -tx) : Math.atan2(tz, tx), col = CAR_COL[aCol[i]];
@@ -212,6 +262,7 @@ function simFrame(realDt) {
       if (part) { U8[u] = 40; U8[u + 1] = 52; U8[u + 2] = 66; U8[u + 3] = 1; } else { U8[u] = col[0]; U8[u + 1] = col[1]; U8[u + 2] = col[2]; U8[u + 3] = k === 1 ? 0 : 2; } }
   }
   sim.instN = c;
+  for (let rd = 0; rd < net.n2; rd++) net.cong[rd] += ((net.cnt[rd] ? net.vs[rd] / net.cnt[rd] / net.rdV[rd] : 1) - net.cong[rd]) * 0.06;   // 拥堵度：这个方向上的平均车速 ÷ 设计车速，慢慢跟随
   const hr = simHour(); $('#simHud').textContent = `${hhmm(hr)} · 车 ${sim.nCar} · 行人 ${sim.nPed} · 进城 ${sim.inCity} · 出城 ${sim.outCity}` + (sim.stuck ? ` · 堵死移走 ${sim.stuck}` : '');
   req();
 }
@@ -223,3 +274,5 @@ function simToggle(on) {
 }
 $('#simBtn').onclick = () => simToggle(!sim.on);
 $('#simSpd').onchange = e => { sim.speed = +e.target.value; };
+$('#simHeat').onchange = e => { sim.heat = e.target.checked; req(); };
+const heatCol = c => { const t = clamp((c - 0.15) / 0.75, 0, 1); return [Math.round(235 * (t < 0.5 ? 1 : 2 - 2 * t)), Math.round(200 * (t < 0.5 ? 2 * t : 1)), 50]; };   // 红 → 黄 → 绿

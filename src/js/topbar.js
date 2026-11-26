@@ -4,7 +4,7 @@ addEventListener('keydown', e => {
   if (e.key === ' ') { space = true; e.preventDefault(); return; }
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); if (!shop.open) undo(); return; }
   if (shop.open) return;
-  const t = { 1: 'select', 2: 'road', 3: 'build', 4: 'erase', 5: 'terrain' }[e.key];
+  const t = { 1: 'select', 2: 'road', 3: 'build', 4: 'erase', 5: 'terrain', 6: 'junction' }[e.key];
   if (t) setTool(t);
   else if ((e.key === 'e' || e.key === 'E') && ui.tool === 'terrain' && ui.hover) { const h = elevAt(ui.hover[0], ui.hover[1]); if (ui.tmode === 'water') $('#ws-h').value = Math.ceil(h + 5); else $('#tb-elev').value = Math.round(h); }
   else if (e.key === 'r' || e.key === 'R') rotate(e.shiftKey ? -1 : 1);

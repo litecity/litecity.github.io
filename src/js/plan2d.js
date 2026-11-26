@@ -68,6 +68,19 @@ function draw2() {
     g.setLineDash([]); g.lineCap = 'round';
     const drawB = b => { g.save(); g.translate(b.x * s, b.z * s); g.rotate(b.r); drawAssetPlan(g, S.assets[b.a], s); g.restore(); };
     for (const b of S.blds) drawB(b);
+    if (sim.on && sim.net && !sim.dirty) {
+      const net = sim.net;
+      if (sim.heat) { g.lineCap = 'butt'; g.globalAlpha = 0.8;                 // 拥堵热力：每个行车方向按“车速 ÷ 设计车速”上色，没车的方向不画
+        for (let rd = 0; rd < net.n2; rd++) { if (!net.rdN[rd] || (!net.cnt[rd] && net.cong[rd] > 0.93)) continue; const l0 = net.rdL0[rd], o0 = net.laneOff[l0], o1 = net.laneOff[l0 + net.rdN[rd] - 1], c = heatCol(net.cong[rd]);
+          offPath(net.roads[rd >> 1], (o0 + o1) / 2); g.strokeStyle = `rgb(${c[0]},${c[1]},${c[2]})`; g.lineWidth = Math.max(3, (Math.abs(o1 - o0) + 2.2) * s); g.stroke(); }
+        g.globalAlpha = 1; g.lineCap = 'round'; }
+      if (s > 0.7) for (const nd of net.nodes) { if (!nd.steps) continue; const st = nd.steps[simStepOf(nd)];                 // 红绿灯：每个进口一个小圆点
+        for (const a of nd.arms) { if (!a.has) continue; const bits = st.g.get(a.rd) | 0; g.fillStyle = bits === 7 ? '#2E9B57' : bits ? '#E3A400' : '#C8402E'; g.beginPath(); g.arc((a.x - a.hx * 9) * s, (a.z - a.hz * 9) * s, Math.max(3, 1.6 * s), 0, TAU); g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 1; g.stroke(); } }
+    }
+    if (ui.tool === 'junction') for (const n of J.nodes) {                     // 路口工具：所有可设置的路口画一圈，选中的加粗并标出各进口
+      const selN = nodeKeyOf(n) === ui.node; g.strokeStyle = selN ? T.sel : T.accent; g.lineWidth = selN ? 3 : 1.5; g.setLineDash(selN ? [] : [5, 4]); g.beginPath(); g.arc(n.x * s, n.z * s, (n.R + 4) * s, 0, TAU); g.stroke(); g.setLineDash([]);
+      if (selN) { g.font = '600 12px Barlow Condensed, sans-serif'; g.textAlign = 'center'; for (const a of jxArms(n)) { const x = (a.x - a.hx * (n.R + 16)) * s, z = (a.z - a.hz * (n.R + 16)) * s; g.fillStyle = T.panel; g.fillRect(x - 26, z - 9, 52, 16); g.fillStyle = T.ink; g.fillText(a.name, x, z + 3); } }
+    }
     if (sim.on && sim.instN) {                                                 // 人和车在平面图上是小方点
       const F = sim.inst, U8 = sim.instU;
       for (let c = 0; c < sim.instN; c++) { const u = c * 20 + 16, k = U8[u + 3]; if (k === 1) continue; g.fillStyle = `rgb(${U8[u]},${U8[u + 1]},${U8[u + 2]})`; const d = k === 2 ? Math.max(2, 0.7 * s) : Math.max(3, 2.2 * s); g.fillRect(F[c * 5] * s - d / 2, F[c * 5 + 2] * s - d / 2, d, d); }

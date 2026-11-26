@@ -3,9 +3,11 @@ let inspKey = '';
 const LANE_SYM = { F: '↑', B: '↓', S: '急', X: '✕', M: '▮' };
 function inspSync() {                                                            // 每帧比一下“选中了什么”，变了才重画面板
   const el = $('#insp'), s = ui.tool === 'select' && !shop.open ? ui.sel : null, r = s && s.k === 'road' ? S.roads[s.i] : null, b = s && s.k === 'bld' ? S.blds[s.i] : null;
-  const key = r ? 'r' + s.i + r.ln + (r.m | 0) : b ? 'b' + s.i + b.a + JSON.stringify(b.f || 0) + sim.on : '';
-  if (key === inspKey) { if (b && sim.on) inspLive(s.i); return; }
+  const jn = ui.tool === 'junction' && ui.node && !shop.open ? J.nodes.find(n => nodeKeyOf(n) === ui.node) : null;
+  const key = jn ? 'j' + ui.node + jn.arms.length + JSON.stringify((S.env.jx || {})[ui.node] || 0) : r ? 'r' + s.i + r.ln + (r.m | 0) : b ? 'b' + s.i + b.a + JSON.stringify(b.f || 0) + sim.on : '';
+  if (key === inspKey) { if (b && sim.on) inspLive(s.i); if (jn) jxLive(); return; }
   inspKey = key; el.hidden = !key; if (!key) return;
+  if (jn) return jxRender(jn);
   if (r) {
     const li = laneInfo(r);
     el.innerHTML = `<h3>道路 · ${li.w.toFixed(1)} m 宽 · ${['贴地', '桥', '隧道'][r.m | 0]}</h3>
@@ -39,6 +41,7 @@ function inspCurve(b) {
 }
 function inspLive(i) { const el = $('#insp-live'); if (!el) return; el.textContent = sim.on && sim.bIn ? `已到达 ${sim.bIn[i] | 0} · 已出发 ${sim.bOut[i] | 0} · 等待出门 ${sim.bQ[i] | 0} · 流入缺口 ${Math.max(0, sim.need[i]).toFixed(0)}` : '打开顶栏的“模拟”后这里显示实时人数。'; }
 $('#insp').addEventListener('click', e => {
+  if (e.target.dataset.j) return jxEdit(e);
   const s = ui.sel, r = s && s.k === 'road' ? S.roads[s.i] : null; if (!r) return;
   const li = laneInfo(r), lane = e.target.dataset.lane, act = e.target.dataset.act;
   const put = core => { pushUndo(); setLanes(r, (li.wl ? 'W' : '') + core + (li.wr ? 'W' : '')); changed(); };
@@ -50,6 +53,7 @@ $('#insp').addEventListener('click', e => {
   else if (act === 'peel') { pushUndo(); const p = peelRoad(r, clamp(+$('#insp-k').value | 0, 1, li.lanes.length - 1)); if (p) { ui.sel = { k: 'road', i: S.roads.indexOf(p[1]) }; changed(); } }
 });
 $('#insp').addEventListener('change', e => {
+  if (e.target.dataset.j) return jxEdit(e);
   const s = ui.sel, act = e.target.dataset.act; if (!s || !act) return;
   if (s.k === 'road') {
     const r = S.roads[s.i], li = laneInfo(r); if (!r) return;
@@ -64,3 +68,42 @@ $('#insp').addEventListener('change', e => {
     changed();
   }
 });
+
+// ── 路口面板：像 TM:PE 那样给红绿灯编步骤，给进口立让行标志
+const COMPASS = ['北', '东北', '东', '东南', '南', '西南', '西', '西北'];
+function jxArms(n) {                                                             // 这个路口的各个进口：从哪边来、编号
+  return n.arms.map(a => { const p = roadPts(a.r), q = a.e === 'a' ? p[0] : p[p.length - 1], sg = a.e === 'b' ? 1 : -1, hx = q.tx * sg, hz = q.tz * sg, li = laneInfo(a.r);
+    return { ak: armKey(hx, hz), hx, hz, x: n.x, z: n.z, name: COMPASS[((Math.round(Math.atan2(-hx, hz) / (Math.PI / 4)) % 8) + 8) % 8] + '侧来车', has: (a.e === 'b' ? li.fwd : li.back).length > 0 }; }).filter(a => a.has);
+}
+const jxCfg = () => { const jx = S.env.jx || (S.env.jx = {}); return jx[ui.node] || (jx[ui.node] = { m: 'auto', st: [], pri: {} }); };
+function jxRender(n) {
+  const el = $('#insp'), arms = jxArms(n), cfg = (S.env.jx || {})[ui.node] || { m: 'auto', st: [], pri: {} }, m = cfg.m || 'auto', BT = [[2, '←', '左转'], [1, '↑', '直行'], [4, '→', '右转']];
+  el.innerHTML = `<h3>路口 · ${n.arms.length} 岔</h3>
+    <label>控制方式 <select data-j="m">${[['auto', '自动红绿灯（两相位）'], ['none', '无信号，按让行标志'], ['timed', '自定义定时红绿灯']].map(o => `<option value="${o[0]}" ${m === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></label>
+    ${m === 'none' ? `<h3>让行标志</h3>${arms.map(a => `<div class="jarm"><span>${a.name}</span><select data-j="pri" data-k="${a.ak}">${[[0, '自动（宽路为主路）'], [1, '主路'], [2, '让行'], [3, '停车让行']].map(o => `<option value="${o[0]}" ${((cfg.pri || {})[a.ak] | 0) === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></div>`).join('')}<div class="note">次路的车要等主路上快到路口的车过去。左转永远让对向直行和右转。</div>` : ''}
+    ${m === 'timed' ? `<h3>定时步骤（循环执行）</h3>${(cfg.st || []).map((s, i) => `<div class="jstep" data-step="${i}"><div class="jarm"><label>第 ${i + 1} 步 <input type="number" data-j="d" data-s="${i}" min="1" max="600" value="${s.d}" style="width:4.2em"> 秒</label><button class="btn sm warn" data-j="del" data-s="${i}">删除</button></div>
+      ${arms.map(a => `<div class="jarm"><span>${a.name}</span><span>${BT.map(b => `<button class="tg ${((s.g || {})[a.ak] | 0) & b[0] ? 'on' : ''}" data-j="g" data-s="${i}" data-k="${a.ak}" data-b="${b[0]}" title="${b[2]}">${b[1]}</button>`).join(' ')}</span></div>`).join('')}</div>`).join('')}
+      <div class="row"><button class="btn sm" data-j="add">＋ 加一步</button><button class="btn sm" data-j="fill">用自动方案填充</button></div>
+      <div class="note">每一步里，绿色的箭头是这一步放行的方向，红色是禁行。一步全红可以当清空时间。左转遇到对向直行仍会让行。</div>` : ''}
+    ${m === 'auto' ? '<div class="note">大致同一条直线上的两个进口同时放行 20 秒，然后全红 3 秒，再换另一组。想自己编就选“自定义定时红绿灯”。</div>' : ''}
+    <div class="readout" id="jx-live"></div>`;
+  jxLive();
+}
+function jxLive() {
+  const el = $('#jx-live'); if (!el) return; let cur = -1;
+  if (sim.on && sim.net) { const id = sim.net.nodeByKey.get(ui.node), nd = id != null ? sim.net.nodes[id] : null; if (nd && nd.steps) { cur = simStepOf(nd); el.textContent = `模拟中：现在是第 ${cur + 1} 步，一个周期 ${nd.cyc} 秒`; } else el.textContent = '模拟中：这个路口没有信号灯'; }
+  else el.textContent = '打开“模拟”可以看到灯在走。';
+  document.querySelectorAll('#insp .jstep').forEach(d => d.classList.toggle('now', +d.dataset.step === cur));
+}
+function jxEdit(e) {
+  const t = e.target, act = t.dataset.j, n = J.nodes.find(q => nodeKeyOf(q) === ui.node); if (!n || (e.type === 'click' && t.tagName !== 'BUTTON') || (e.type === 'change' && t.tagName === 'BUTTON')) return;
+  pushUndo(); const cfg = jxCfg(), s = cfg.st[+t.dataset.s];
+  if (act === 'm') { cfg.m = t.value; if (cfg.m === 'timed' && !cfg.st.length) cfg.st = autoSteps(jxArms(n)); }
+  else if (act === 'pri') { cfg.pri = cfg.pri || {}; if (+t.value) cfg.pri[t.dataset.k] = +t.value; else delete cfg.pri[t.dataset.k]; }
+  else if (act === 'd' && s) s.d = clamp(+t.value || 10, 1, 600);
+  else if (act === 'del' && s) cfg.st.splice(+t.dataset.s, 1);
+  else if (act === 'g' && s) { s.g = s.g || {}; s.g[t.dataset.k] = (s.g[t.dataset.k] | 0) ^ +t.dataset.b; }
+  else if (act === 'add' && cfg.st.length < 16) cfg.st.push({ d: 15, g: {} });
+  else if (act === 'fill') cfg.st = autoSteps(jxArms(n));
+  changed();
+}

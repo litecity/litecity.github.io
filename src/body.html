@@ -7,6 +7,7 @@
       <button data-tool="build" aria-pressed="false">建造<kbd>3</kbd></button>
       <button data-tool="erase" aria-pressed="false">拆除<kbd>4</kbd></button>
       <button data-tool="terrain" aria-pressed="false">地形<kbd>5</kbd></button>
+      <button data-tool="junction" aria-pressed="false">路口<kbd>6</kbd></button>
     </div>
     <div class="opts">
       <label>画法 <select id="roadMode"><option value="line">直线</option><option value="curve">自由曲线</option></select></label>
@@ -16,7 +17,7 @@
       <button class="btn sm" id="rotBtn" title="旋转 15°（R）">旋转 ⟳</button>
     </div>
     <div class="spacer"></div>
-    <div class="simbar"><button class="btn" id="simBtn" aria-pressed="false" title="人流与车流模拟">模拟</button><select id="simSpd" aria-label="模拟倍速"><option value="1">×1</option><option value="5">×5</option><option value="20" selected>×20</option><option value="60">×60</option></select><span class="simhud" id="simHud"></span></div>
+    <div class="simbar"><button class="btn" id="simBtn" aria-pressed="false" title="人流与车流模拟">模拟</button><select id="simSpd" aria-label="模拟倍速"><option value="1">×1</option><option value="5">×5</option><option value="20" selected>×20</option><option value="60">×60</option></select><label><input type="checkbox" id="simHeat" checked> 拥堵</label><span class="simhud" id="simHud"></span></div>
     <button class="btn" id="undoBtn" title="Ctrl+Z">撤销</button>
     <button class="btn" id="ledgerBtn">内存账本</button>
     <button class="btn warn" id="clearBtn">清空</button>
