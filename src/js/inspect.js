@@ -4,7 +4,7 @@ const LANE_SYM = { F: '↑', B: '↓', S: '急', X: '✕', M: '▮' };
 function inspSync() {                                                            // 每帧比一下“选中了什么”，变了才重画面板
   const el = $('#insp'), s = ui.tool === 'select' && !shop.open ? ui.sel : null, r = s && s.k === 'road' ? S.roads[s.i] : null, b = s && s.k === 'bld' ? S.blds[s.i] : null;
   const jn = ui.tool === 'junction' && ui.node && !shop.open ? J.nodes.find(n => nodeKeyOf(n) === ui.node) : null;
-  const key = jn ? 'j' + ui.node + jn.arms.length + JSON.stringify((S.env.jx || {})[ui.node] || 0) : r ? 'r' + s.i + r.ln + (r.m | 0) : b ? 'b' + s.i + b.a + JSON.stringify(b.f || 0) + sim.on : '';
+  const key = jn ? 'j' + ui.node + jn.arms.length + (ui.jl || '') + JSON.stringify((S.env.jx || {})[ui.node] || 0) : r ? 'r' + s.i + r.ln + (r.m | 0) : b ? 'b' + s.i + b.a + JSON.stringify(b.f || 0) + sim.on + (S.assets[b.a].prop ? 'p' : '') : '';
   if (key === inspKey) { if (b && sim.on) inspLive(s.i); if (jn) jxLive(); return; }
   inspKey = key; el.hidden = !key; if (!key) return;
   if (jn) return jxRender(jn);
@@ -20,6 +20,9 @@ function inspSync() {                                                           
       <div class="row"><button class="btn sm" data-act="break">在中点打断</button></div>
       <div class="row"><label>从左数第 <input type="number" id="insp-k" min="1" max="${Math.max(1, li.lanes.length - 1)}" value="${Math.max(1, li.lanes.length - 1)}" style="width:3.2em"> 条之后</label><button class="btn sm" data-act="peel" ${li.lanes.length < 2 ? 'disabled' : ''}>切成两条路</button></div>
       <div class="note">切开后两条路并排、车道原位不动；把其中一条的远端拖走并调弯，就是匝道。车道首尾对齐的地方车会直接开过去，不需要路口。</div>`;
+  } else if (S.assets[b.a].prop) {
+    const as = S.assets[b.a];
+    el.innerHTML = `<h3>${as.name} · 摆件</h3>` + (as.label ? `<label>牌面文字<input type="text" data-act="pt" maxlength="60" value="${(b.t || '').replace(/"/g, '&quot;')}"></label><div class="note">用竖线 | 换行，最多 4 行。可以直接打箭头：↑ ↓ ← → ↖ ↗。</div>` : '') + '<div class="note">摆件不产生人流。拖动可移动，R 旋转。勾着“建筑贴路”时，路牌会立在路边并面向来车，门架会横跨整条路。</div>';
   } else {
     const f = flowOf(b), own = b.f || {};
     el.innerHTML = `<h3>${S.assets[b.a].name} · 人流</h3>
@@ -60,7 +63,8 @@ $('#insp').addEventListener('change', e => {
     if (act === 'wl' || act === 'wr') { pushUndo(); setLanes(r, ((act === 'wl' ? e.target.checked : li.wl) ? 'W' : '') + li.core + ((act === 'wr' ? e.target.checked : li.wr) ? 'W' : '')); changed(); }
     else if (act === 'preset' && e.target.value) { pushUndo(); setLanes(r, e.target.value); changed(); }
   } else {
-    const b = S.blds[s.i]; if (!b) return; const f = flowOf(b), nums = v => { const a = String(v).split(/[,，\s]+/).map(Number).filter(Number.isFinite).map(x => clamp(x, 0, 1)); while (a.length < 24) a.push(a.length ? a[a.length - 1] : 0); return a.slice(0, 24); };
+    const b = S.blds[s.i]; if (!b) return; if (act === 'pt') { pushUndo(); b.t = e.target.value.slice(0, 60); changed(); return; }
+    const f = flowOf(b), nums = v => { const a = String(v).split(/[,，\s]+/).map(Number).filter(Number.isFinite).map(x => clamp(x, 0, 1)); while (a.length < 24) a.push(a.length ? a[a.length - 1] : 0); return a.slice(0, 24); };
     pushUndo(); b.f = { p: b.f && b.f.p || '', i: f.i, o: f.o, ...(b.f || {}) };
     if (act === 'fp') { if (e.target.value) b.f.p = e.target.value; else delete b.f; }
     else if (act === 'fi') b.f.i = clamp(+e.target.value || 0, 0, 5000); else if (act === 'fo') b.f.o = clamp(+e.target.value || 0, 0, 5000);
@@ -86,6 +90,9 @@ function jxRender(n) {
       <div class="row"><button class="btn sm" data-j="add">＋ 加一步</button><button class="btn sm" data-j="fill">用自动方案填充</button></div>
       <div class="note">每一步里，绿色的箭头是这一步放行的方向，红色是禁行。一步全红可以当清空时间。左转遇到对向直行仍会让行。</div>` : ''}
     ${m === 'auto' ? '<div class="note">大致同一条直线上的两个进口同时放行 20 秒，然后全红 3 秒，再换另一组。想自己编就选“自定义定时红绿灯”。</div>' : ''}
+    <h3>车道连接</h3>
+    <div class="note">${ui.jl ? '已选中一条进口车道（蓝色实心点）。点出口车道的空心点，连上或断开；再点一次实心点取消选中。' : '在图上点一条进口车道的实心点，再点它可以去的出口车道的空心点。没连过的车道可以去所有方向；连过的只能去连着的车道。'}</div>
+    <div class="row"><button class="btn sm warn" data-j="lcclr" ${cfg.lc && Object.keys(cfg.lc).length ? '' : 'disabled'}>清除本路口的车道连接</button></div>
     <div class="readout" id="jx-live"></div>`;
   jxLive();
 }
@@ -105,5 +112,6 @@ function jxEdit(e) {
   else if (act === 'g' && s) { s.g = s.g || {}; s.g[t.dataset.k] = (s.g[t.dataset.k] | 0) ^ +t.dataset.b; }
   else if (act === 'add' && cfg.st.length < 16) cfg.st.push({ d: 15, g: {} });
   else if (act === 'fill') cfg.st = autoSteps(jxArms(n));
+  else if (act === 'lcclr') { delete cfg.lc; ui.jl = null; }
   changed();
 }

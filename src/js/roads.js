@@ -119,13 +119,42 @@ function computeJ() {
   for (const l of map.values()) { l.sort((p, q) => p.y - q.y); let g = [l[0]]; for (let i = 1; i < l.length; i++) { if (l[i].y - l[i - 1].y > 2.5) { groups.push(g); g = []; } g.push(l[i]); } groups.push(g); }
   for (const arms of groups) if (arms.length >= 3) {
     const R = Math.max(...arms.map(a => a.r.w)) / 2 + 1, a0 = arms[0], p = a0.r[a0.e], tun = arms.every(a => a.r.m === 2 && a.r.h), rho = R * 1.7 + 3;
-    nodes.push({ x: p[0], z: p[1], R, arms, y: a0.r.h ? a0.r.h[a0.e === 'a' ? 0 : a0.r.h.length - 1] : null, tun, rho });
-    for (const a of arms) { let o = ends.get(a.r); if (!o) ends.set(a.r, o = { a: 0, b: 0 }); o[a.e] = R;
+    const node = { x: p[0], z: p[1], R, arms, y: a0.r.h ? a0.r.h[a0.e === 'a' ? 0 : a0.r.h.length - 1] : null, tun, rho, poly: null, polyW: null };
+    // 路口的形状：每条路从中心往外退一段（退距），退到相邻两条路的路缘不再重叠为止；相邻路缘之间用圆角连起来
+    for (const a of arms) { const pts = roadPts(a.r), q = a.e === 'a' ? pts[0] : pts[pts.length - 1], sg = a.e === 'a' ? 1 : -1, li = laneInfo(a.r);
+      a.dx = q.tx * sg; a.dz = q.tz * sg; a.ang = Math.atan2(a.dz, a.dx); a.hw = a.r.w / 2; a.hwW = a.hw + (li.wl || li.wr ? LW.W : 0); a.len = pts.len; }
+    arms.sort((p1, p2) => p1.ang - p2.ang);
+    const n = arms.length;
+    for (let i = 0; i < n; i++) { const a = arms[i]; let need = 0;
+      for (const b of [arms[(i + 1) % n], arms[(i + n - 1) % n]]) { const cs = a.dx * b.dx + a.dz * b.dz, sn = Math.abs(a.dx * b.dz - a.dz * b.dx); if (sn > 0.12) need = Math.max(need, (b.hwW + a.hwW * cs) / sn); else if (cs > 0) need = Math.max(need, 30); }
+      a.sb = tun ? R : clamp(need + 1.5, 3, Math.min(45, a.len / 2.5)); }
+    if (!tun) for (const [key, hk] of [['poly', 'hw'], ['polyW', 'hwW']]) { const P = [];
+      for (let i = 0; i < n; i++) { const a = arms[i], b = arms[(i + 1) % n], cx = node.x + a.dx * a.sb, cz = node.z + a.dz * a.sb, bx = node.x + b.dx * b.sb, bz = node.z + b.dz * b.sb;
+        const A = [cx + a.dz * a[hk], cz - a.dx * a[hk]], A2 = [cx - a.dz * a[hk], cz + a.dx * a[hk]], B = [bx + b.dz * b[hk], bz - b.dx * b[hk]];     // A：这条路靠上一条路的路缘角；A2：靠下一条路的；B：下一条路靠这边的
+        P.push(A, A2);
+        const den = a.dx * b.dz - a.dz * b.dx; let C = [(A2[0] + B[0]) / 2, (A2[1] + B[1]) / 2];
+        if (Math.abs(den) > 0.12) { const u = ((B[0] - A2[0]) * b.dz - (B[1] - A2[1]) * b.dx) / den; if (u < 0 && u > -80) C = [A2[0] + a.dx * u, A2[1] + a.dz * u]; }                    // 两条路缘线的交点当圆角的控制点
+        for (let k = 1; k < 5; k++) { const t = k / 5, u = 1 - t; P.push([u * u * A2[0] + 2 * u * t * C[0] + t * t * B[0], u * u * A2[1] + 2 * u * t * C[1] + t * t * B[1]]); } }
+      node[key] = P; }
+    nodes.push(node);
+    for (const a of arms) { let o = ends.get(a.r); if (!o) ends.set(a.r, o = { a: 0, b: 0 }); o[a.e] = a.sb;
       if (tun) { let h = hall.get(a.r); if (!h) hall.set(a.r, h = { a: 0, b: 0 }); const wi = a.r.w / 2 + 0.8; h[a.e] = Math.sqrt(Math.max(0, rho * rho - wi * wi)); } }
   }
   J = { nodes, ends, hall };
 }
-function armPoint(a, R) { const pts = roadPts(a.r); if (pts.len < 2 * R + 10) return null; return atDist(pts, a.e === 'a' ? R + 2.4 : pts.len - R - 2.4); }
+function armPoint(a, R, extra) { const pts = roadPts(a.r), d = R + (extra == null ? 2.4 : extra); if (pts.len < 2 * R + 10) return null; return atDist(pts, a.e === 'a' ? d : pts.len - d); }
+function trimPts(pts, d0, d1) {                                                  // 一条路去掉两头各一段之后的折线（路口范围内不画人行道）
+  if (!d0 && !d1) return pts; const s0 = d0, s1 = pts.len - d1; if (s1 - s0 < 1) return [];
+  const out = [atDist(pts, s0)]; for (const p of pts) if (p.s > s0 + 0.5 && p.s < s1 - 0.5) out.push(p); out.push(atDist(pts, s1)); return out;
+}
+// 路口各条进口车道、出口车道在停止线处的位置（车道连接器用）。编号 = 进口方向编号:从左数第几条
+function jxLanes(n) {
+  const ins = [], outs = [];
+  for (const a of n.arms) { const pts = roadPts(a.r), q = atDist(pts, a.e === 'a' ? a.sb : pts.len - a.sb), li = laneInfo(a.r), ak = armKey(-a.dx, -a.dz);
+    const inL = a.e === 'b' ? li.fwd : li.back.slice().reverse(), outL = a.e === 'a' ? li.fwd : li.back.slice().reverse();
+    inL.forEach((l, k) => ins.push({ key: ak + ':' + k, x: q.x - q.tz * l.o, z: q.z + q.tx * l.o })); outL.forEach((l, k) => outs.push({ key: ak + ':' + k, x: q.x - q.tz * l.o, z: q.z + q.tx * l.o })); }
+  return { ins, outs };
+}
 function snapToRoad(b) {
   const f = fp(S.assets[b.a]); let best = null, br = null;
   for (const r of S.roads) { const n = nearRoad(r, b.x, b.z); if (n && (!best || n.d - r.w / 2 < best.d - br.w / 2)) { best = n; br = r; } }
@@ -134,4 +163,16 @@ function snapToRoad(b) {
   b.x = best.x + nx * sg * off; b.z = best.z + nz * sg * off; b.r = Math.atan2(nx * sg, -nz * sg);
   return true;
 }
-function poseAt(w) { const b = { a: ui.asset, x: w[0], z: w[1], r: ui.rot }; if (ui.snap) snapToRoad(b); return b; }
+function poseAt(w) {
+  const b = { a: ui.asset, x: w[0], z: w[1], r: ui.rot }, as = S.assets[ui.asset];
+  if (as.prop) { if (as.label) b.t = as.label.def; if (ui.snap && as.sign) snapSign(b, as); } else if (ui.snap) snapToRoad(b);
+  return b;
+}
+function snapSign(b, as) {                                                       // 路牌贴路：普通牌子立在路边、面向这一侧的来车；门架横跨整条路，宽度跟着路宽
+  let best = null, br = null; for (const r of S.roads) { const n = nearRoad(r, b.x, b.z); if (n && n.d < r.w / 2 + 12 && (!best || n.d < best.d)) { best = n; br = r; } }
+  if (!best) return; const li = laneInfo(br), nx = -best.tz, nz = best.tx, sg = ((b.x - best.x) * nx + (b.z - best.z) * nz) >= 0 ? 1 : -1;
+  const fwdFacing = Math.atan2(best.tx, -best.tz), face = as.gantry ? (li.fwd.length ? 1 : -1) : !li.back.length ? 1 : !li.fwd.length ? -1 : sg;      // 面向哪个方向开来的车
+  b.r = face > 0 ? fwdFacing : fwdFacing + Math.PI;
+  if (as.gantry) { b.x = best.x; b.z = best.z; b.sx = Math.round((br.w + 3) / 14.5 * 100) / 100; }
+  else { const off = br.w / 2 + (li.wl || li.wr ? 1.1 : 0.9); b.x = best.x + nx * sg * off; b.z = best.z + nz * sg * off; }
+}

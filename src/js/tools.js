@@ -22,7 +22,13 @@ function addRoad(a, b, c) {
   S.roads.push(r); normalizeRoads([r]); const i = S.roads.indexOf(r); ui.sel = i >= 0 ? { k: 'road', i } : null; changed();
 }
 function press(w, forced) {
-  if (ui.tool === 'junction') { let best = null, bd = Infinity; for (const n of J.nodes) { const d = Math.hypot(n.x - w[0], n.z - w[1]); if (d < n.R + 10 && d < bd) { bd = d; best = n; } } ui.node = best ? nodeKeyOf(best) : null; req(); return false; }
+  if (ui.tool === 'junction' && ui.node) {                                       // 车道连接：先点进口车道的实心点，再点它能去的出口车道的空心点
+    const n = J.nodes.find(q => nodeKeyOf(q) === ui.node), ln = n && jxLanes(n), near = l => l.find(q => Math.hypot(q.x - w[0], q.z - w[1]) < Math.max(2, ui.tol * 0.6));
+    const i = ln && near(ln.ins), o = ln && ui.jl && near(ln.outs);
+    if (o) { pushUndo(); const cfg = jxCfg(), lc = cfg.lc || (cfg.lc = {}), l = lc[ui.jl] || (lc[ui.jl] = []), k = l.indexOf(o.key); if (k >= 0) l.splice(k, 1); else l.push(o.key); if (!l.length) delete lc[ui.jl]; changed(); return false; }
+    if (i) { ui.jl = ui.jl === i.key ? null : i.key; req(); return false; }
+  }
+  if (ui.tool === 'junction') { ui.jl = null; let best = null, bd = Infinity; for (const n of J.nodes) { const d = Math.hypot(n.x - w[0], n.z - w[1]); if (d < Math.max(n.R, ...n.arms.map(a => a.sb)) + 8 && d < bd) { bd = d; best = n; } } ui.node = best ? nodeKeyOf(best) : null; req(); return false; }
   if (ui.tool === 'terrain' && ui.tmode === 'water') {                           // 点一下放水点，点在已有水点上则删除
     pushUndo(); const i = S.env.src.findIndex(q => dist2([q.x, q.z], w) < ui.tol * 2);
     if (i >= 0) S.env.src.splice(i, 1); else if (S.env.src.length < 50) S.env.src.push({ x: Math.round(w[0]), z: Math.round(w[1]), h: numIn('ws-h', 20, -500, 3000) });

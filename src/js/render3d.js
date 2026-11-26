@@ -165,6 +165,24 @@ function buildDyn() {
   }
   if (gl) { gl.bindBuffer(gl.ARRAY_BUFFER, bufD); gl.bufferData(gl.ARRAY_BUFFER, m.u.subarray(0, m.n * 20), gl.DYNAMIC_DRAW); }
 }
+// 牌面上的字：不做成贴图，而是把牌子中心投影到屏幕上，在叠在实景上面的一层画布里直接写字。
+// 字的大小跟着远近变，横向按牌子朝向压扁；背对镜头或太远太小就不写。字不会被前面的东西挡住，这是这种做法的代价
+function drawSignText(VP, eye) {
+  const cv = $('#c3t'), g = cv.getContext('2d'); if (cv.width !== c3.width || cv.height !== c3.height) { cv.width = c3.width; cv.height = c3.height; } g.clearRect(0, 0, cv.width, cv.height);
+  if (shop.open) return; const Wp = cv.width, Hp = cv.height, th = Math.tan(FOV / 2);
+  for (const b of S.blds) {
+    const as = S.assets[b.a], lb = as.label; if (!lb || !b.t) continue; const fx_ = -Math.sin(b.r), fz_ = Math.cos(b.r), x = b.x + fx_ * 0.2, z = b.z + fz_ * 0.2, y = baseY(b, as) + lb.y;
+    const cw = VP[3] * x + VP[7] * y + VP[11] * z + VP[15]; if (cw < 2 || cw > 1100) continue;
+    const dx = eye[0] - x, dz = eye[2] - z, dl = Math.hypot(dx, dz) || 1, facing = (fx_ * dx + fz_ * dz) / dl; if (facing < 0.15) continue;                    // 从背面或侧面看不到字
+    const ppm = Hp / 2 / (th * cw), hpx = lb.h * ppm; if (hpx < 7) continue;
+    const px = ((VP[0] * x + VP[4] * y + VP[8] * z + VP[12]) / cw * 0.5 + 0.5) * Wp, py = (0.5 - (VP[1] * x + VP[5] * y + VP[9] * z + VP[13]) / cw * 0.5) * Hp;
+    const lines = b.t.split('|').slice(0, 4), wpx = lb.w * (b.sx || 1) * ppm; let fs = hpx / lines.length * 0.78;
+    g.save(); g.translate(px, py); g.scale(facing, 1); g.font = `600 ${fs}px "Barlow","PingFang SC","Microsoft YaHei",sans-serif`;
+    const mw = Math.max(...lines.map(t => g.measureText(t).width)); if (mw > wpx * 0.94) { fs *= wpx * 0.94 / mw; g.font = `600 ${fs}px "Barlow","PingFang SC","Microsoft YaHei",sans-serif`; }
+    g.fillStyle = lb.col || '#FFFFFF'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.globalAlpha = clamp((hpx - 7) / 6, 0, 1);
+    lines.forEach((t, i) => g.fillText(t, 0, (i - (lines.length - 1) / 2) * fs * 1.15)); g.restore();
+  }
+}
 function draw3() {
   if (!gl || !c3.clientWidth || !c3.clientHeight) return;
   fit(c3); gl.viewport(0, 0, c3.width, c3.height);
@@ -226,5 +244,6 @@ function draw3() {
     gl.drawArraysInstanced(gl.TRIANGLES, 0, 36, sim.instN); gl.useProgram(prog);
   }
   if (xray) { gl.enable(gl.BLEND); gl.uniform1f(U.uAlpha, 0.55); drawTerrain(); gl.disable(gl.BLEND); gl.uniform1f(U.uAlpha, 1); }   // 修隧道时地形半透明，能看见地下
+  drawSignText(VP, e);
   if (dyn.n) { gl.enable(gl.BLEND); gl.uniform1f(U.uAlpha, 0.62); gl.bindVertexArray(vaoD); gl.drawArrays(gl.TRIANGLES, 0, dyn.n); }
 }

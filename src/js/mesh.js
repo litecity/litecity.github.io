@@ -45,8 +45,13 @@ function emitPart(m, p, tf, colOverride) {
     Q(b0, b1, r1, r0); Q(b3, b2, r1, r0); T(b0, b3, r0); T(b1, b2, r1);
   } else { const a = L(0, h, 0); T(b0, b1, a); T(b1, b2, a); T(b2, b3, a); T(b3, b0, a); }
 }
+function baseY(b, asset) {                                                       // 落地高度：建筑落在地面；摆件如果摆在路上（比如桥上），落在路面
+  if (!asset.prop || shop.open) return H(b.x, b.z); let best = null;
+  for (const r of S.roads) { const bb = roadPts(r).bb; if (b.x < bb[0] - 12 || b.x > bb[2] + 12 || b.z < bb[1] - 12 || b.z > bb[3] + 12) continue; const n = nearRoad(r, b.x, b.z); if (n.d < r.w / 2 + 4 && (!best || n.d < best.d)) best = { d: n.d, y: roadYAt(r, n.t, n.x, n.z) + (r.h ? 0.35 : lift()) }; }
+  return best ? best.y : H(b.x, b.z);
+}
 function emitAsset(m, asset, b, col) {
-  const c = Math.cos(b.r), s = Math.sin(b.r), y0 = H(b.x, b.z), tf = (x, y, z) => [b.x + x * c - z * s, y0 + y, b.z + x * s + z * c];
+  const c = Math.cos(b.r), s = Math.sin(b.r), y0 = baseY(b, asset), sx = b.sx || 1, tf = (x, y, z) => [b.x + x * sx * c - z * s, y0 + y, b.z + x * sx * s + z * c];
   for (const p of asset.parts) emitPart(m, p, tf, col);
 }
 function ribbon(m, pts, hw, y, col, mat, yf) {
@@ -98,7 +103,8 @@ function emitRoad(m, r) {
   if (r.m === 2) return emitTunnel(m, r, pts, yf);
   const li = laneInfo(r), sw = li.wl || li.wr ? LW.W : 0;
   ribbon(m, pts, hw, L + 0.14, road, 255, yf);
-  if (li.wl) strip(m, pts, -hw - LW.W, -hw, L + 0.26, walk, 255, yf); if (li.wr) strip(m, pts, hw, hw + LW.W, L + 0.26, walk, 255, yf);
+  const jt = J.ends.get(r), ptsW = jt ? trimPts(pts, jt.a, jt.b) : pts;                                 // 人行道画到路口边上为止
+  if (li.wl) strip(m, ptsW, -hw - LW.W, -hw, L + 0.26, walk, 255, yf); if (li.wr) strip(m, ptsW, hw, hw + LW.W, L + 0.26, walk, 255, yf);
   for (const [e, y] of [[r.a, ya], [r.b, yb]]) disc(m, e[0], e[1], hw, L + 0.14, road, 255, y);
   const je = J.ends.get(r), d0 = je && je.a ? je.a + 5 : 3, d1 = je && je.b ? je.b + 5 : 0;           // 标线在路口前停住
   laneMarks(m, r, pts, L + 0.22, d0, d1, yf);
@@ -151,9 +157,15 @@ function emitJunctions(m) {
   const road = hex2rgb(W.road), white = [232, 236, 240];
   for (const n of J.nodes) {
     const L = n.y != null ? 0.35 : lift();
-    disc(m, n.x, n.z, n.R + 0.5, L + 0.25, road, 255, n.y);
-    for (const a of n.arms) {                                                  // 每个进口一条斑马线
-      const q = armPoint(a, n.R); if (!q) continue; const hw = a.r.w / 2, y = L + 0.27 + roadYAt(a.r, q.t, q.x, q.z);
+    const yn = n.y != null ? n.y : H(n.x, n.z);
+    if (n.poly) for (const [P, col, dy] of [[n.polyW, hex2rgb(W.walk), 0.235], [n.poly, road, 0.25]]) { const c = [n.x, yn + L + dy, n.z];      // 路口铺装：先铺一层带人行道宽度的，再铺沥青
+      for (let i = 0; i < P.length; i++) { const p = P[i], q = P[(i + 1) % P.length]; tri(m, c, [p[0], c[1], p[1]], [q[0], c[1], q[1]], col, 255); } }
+    else disc(m, n.x, n.z, n.R + 0.5, L + 0.25, road, 255, n.y);
+    for (const a of n.arms) {                                                  // 每个进口一条斑马线和一条停止线
+      const sl = armPoint(a, a.sb, 4.9), li = laneInfo(a.r), inL = a.e === 'b' ? li.fwd : li.back;
+      if (sl && inL.length) { const o0 = Math.min(...inL.map(l => l.o - l.w / 2)), o1 = Math.max(...inL.map(l => l.o + l.w / 2)), y = L + 0.27 + roadYAt(a.r, sl.t, sl.x, sl.z), P = (o, u) => [sl.x - sl.tz * o + sl.tx * u, y, sl.z + sl.tx * o + sl.tz * u];
+        tri(m, P(o0, -0.2), P(o1, -0.2), P(o1, 0.2), white, 255); tri(m, P(o0, -0.2), P(o1, 0.2), P(o0, 0.2), white, 255); }
+      const q = armPoint(a, a.sb); if (!q) continue; const hw = a.r.w / 2, y = L + 0.27 + roadYAt(a.r, q.t, q.x, q.z);
       for (let o = -hw + 0.7; o <= hw - 0.7; o += 1.2) {
         const cx = q.x - q.tz * o, cz = q.z + q.tx * o, P = (u, v) => [cx + q.tx * u - q.tz * v, y, cz + q.tz * u + q.tx * v];
         const p0 = P(-1.3, -0.3), p1 = P(1.3, -0.3), p2 = P(1.3, 0.3), p3 = P(-1.3, 0.3); tri(m, p0, p1, p2, white, 255); tri(m, p0, p2, p3, white, 255);

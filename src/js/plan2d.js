@@ -61,25 +61,32 @@ function draw2() {
     }
     g.globalAlpha = 1; g.setLineDash([]);
     for (const n of J.nodes) {
-      g.fillStyle = T.road; g.beginPath(); g.arc(n.x * s, n.z * s, (n.R + 0.5) * s, 0, TAU); g.fill();
-      if (s > 0.6) for (const a of n.arms) { const q = armPoint(a, n.R); if (!q) continue; const hw = a.r.w / 2 - 0.4;
+      if (n.poly) for (const [P, col] of [[n.polyW, T.walk], [n.poly, T.road]]) { g.fillStyle = col; g.beginPath(); P.forEach((p, i) => i ? g.lineTo(p[0] * s, p[1] * s) : g.moveTo(p[0] * s, p[1] * s)); g.closePath(); g.fill(); }
+      else { g.fillStyle = T.road; g.beginPath(); g.arc(n.x * s, n.z * s, (n.R + 0.5) * s, 0, TAU); g.fill(); }
+      if (s > 0.6) for (const a of n.arms) { const q = armPoint(a, a.sb); if (!q) continue; const hw = a.r.w / 2 - 0.4;
         g.strokeStyle = '#E8ECF0'; g.lineWidth = 2.6 * s; g.setLineDash([0.6 * s, 0.6 * s]); g.beginPath(); g.moveTo((q.x - q.tz * hw) * s, (q.z + q.tx * hw) * s); g.lineTo((q.x + q.tz * hw) * s, (q.z - q.tx * hw) * s); g.stroke(); }
     }
     g.setLineDash([]); g.lineCap = 'round';
-    const drawB = b => { g.save(); g.translate(b.x * s, b.z * s); g.rotate(b.r); drawAssetPlan(g, S.assets[b.a], s); g.restore(); };
+    const drawB = b => { g.save(); g.translate(b.x * s, b.z * s); g.rotate(b.r); if (b.sx) g.scale(b.sx, 1); drawAssetPlan(g, S.assets[b.a], s); g.restore(); };
     for (const b of S.blds) drawB(b);
+    if (s > 1.4) { g.font = '600 11px Barlow Condensed, sans-serif'; g.textAlign = 'center'; for (const b of S.blds) if (b.t && S.assets[b.a].label) { g.fillStyle = T.panel; const tx = b.t.split('|')[0], wd = g.measureText(tx).width + 8; g.fillRect(b.x * s - wd / 2, b.z * s + 6, wd, 14); g.fillStyle = T.ink; g.fillText(tx, b.x * s, b.z * s + 17); } }
     if (sim.on && sim.net && !sim.dirty) {
       const net = sim.net;
-      if (sim.heat) { g.lineCap = 'butt'; g.globalAlpha = 0.8;                 // 拥堵热力：每个行车方向按“车速 ÷ 设计车速”上色，没车的方向不画
+      if (sim.heat) { g.lineCap = 'butt'; g.globalAlpha = 0.5;                 // 拥堵热力：每个行车方向按“车速 ÷ 设计车速”上色，没车的方向不画
         for (let rd = 0; rd < net.n2; rd++) { if (!net.rdN[rd] || (!net.cnt[rd] && net.cong[rd] > 0.93)) continue; const l0 = net.rdL0[rd], o0 = net.laneOff[l0], o1 = net.laneOff[l0 + net.rdN[rd] - 1], c = heatCol(net.cong[rd]);
           offPath(net.roads[rd >> 1], (o0 + o1) / 2); g.strokeStyle = `rgb(${c[0]},${c[1]},${c[2]})`; g.lineWidth = Math.max(3, (Math.abs(o1 - o0) + 2.2) * s); g.stroke(); }
         g.globalAlpha = 1; g.lineCap = 'round'; }
       if (s > 0.7) for (const nd of net.nodes) { if (!nd.steps) continue; const st = nd.steps[simStepOf(nd)];                 // 红绿灯：每个进口一个小圆点
-        for (const a of nd.arms) { if (!a.has) continue; const bits = st.g.get(a.rd) | 0; g.fillStyle = bits === 7 ? '#2E9B57' : bits ? '#E3A400' : '#C8402E'; g.beginPath(); g.arc((a.x - a.hx * 9) * s, (a.z - a.hz * 9) * s, Math.max(3, 1.6 * s), 0, TAU); g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 1; g.stroke(); } }
+        for (const a of nd.arms) { if (!a.has) continue; const bits = st.g.get(a.rd) | 0; g.fillStyle = bits === 7 ? '#2E9B57' : bits ? '#E3A400' : '#C8402E'; g.beginPath(); g.arc((a.x - a.hx * 9) * s, (a.z - a.hz * 9) * s, clamp(1.6 * s, 3, 7), 0, TAU); g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 1; g.stroke(); } }
     }
-    if (ui.tool === 'junction') for (const n of J.nodes) {                     // 路口工具：所有可设置的路口画一圈，选中的加粗并标出各进口
-      const selN = nodeKeyOf(n) === ui.node; g.strokeStyle = selN ? T.sel : T.accent; g.lineWidth = selN ? 3 : 1.5; g.setLineDash(selN ? [] : [5, 4]); g.beginPath(); g.arc(n.x * s, n.z * s, (n.R + 4) * s, 0, TAU); g.stroke(); g.setLineDash([]);
-      if (selN) { g.font = '600 12px Barlow Condensed, sans-serif'; g.textAlign = 'center'; for (const a of jxArms(n)) { const x = (a.x - a.hx * (n.R + 16)) * s, z = (a.z - a.hz * (n.R + 16)) * s; g.fillStyle = T.panel; g.fillRect(x - 26, z - 9, 52, 16); g.fillStyle = T.ink; g.fillText(a.name, x, z + 3); } }
+    if (ui.tool === 'junction') for (const n of J.nodes) {                     // 路口工具：所有可设置的路口画一圈，选中的加粗并标出各进口和车道连接
+      const selN = nodeKeyOf(n) === ui.node, rr = Math.max(n.R, ...n.arms.map(a => a.sb)) + 4; g.strokeStyle = selN ? T.sel : T.accent; g.lineWidth = selN ? 3 : 1.5; g.setLineDash(selN ? [] : [5, 4]); g.beginPath(); g.arc(n.x * s, n.z * s, rr * s, 0, TAU); g.stroke(); g.setLineDash([]);
+      if (!selN) continue;
+      g.font = '600 12px Barlow Condensed, sans-serif'; g.textAlign = 'center'; for (const a of jxArms(n)) { const x = (a.x - a.hx * (rr + 14)) * s, z = (a.z - a.hz * (rr + 14)) * s; g.fillStyle = T.panel; g.fillRect(x - 26, z - 9, 52, 16); g.fillStyle = T.ink; g.fillText(a.name, x, z + 3); }
+      const ln = jxLanes(n), lc = ((S.env.jx || {})[ui.node] || {}).lc || {}, rad = clamp(1.3 * s, 4, 9), outBy = new Map(ln.outs.map(o => [o.key, o]));
+      for (const q of ln.ins) for (const t of lc[q.key] || []) { const o = outBy.get(t); if (!o) continue; const on = q.key === ui.jl; g.strokeStyle = on ? T.sel : T.accent; g.lineWidth = on ? 3 : 1.5; g.beginPath(); g.moveTo(q.x * s, q.z * s); g.quadraticCurveTo(n.x * s, n.z * s, o.x * s, o.z * s); g.stroke(); }
+      for (const o of ln.outs) { g.beginPath(); g.arc(o.x * s, o.z * s, rad, 0, TAU); g.fillStyle = T.panel; g.fill(); g.strokeStyle = T.ink; g.lineWidth = 2; g.stroke(); }
+      for (const q of ln.ins) { const on = q.key === ui.jl; g.beginPath(); g.arc(q.x * s, q.z * s, rad * (on ? 1.4 : 1), 0, TAU); g.fillStyle = on ? T.sel : lc[q.key] ? T.accent : T.mute; g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 1.5; g.stroke(); }
     }
     if (sim.on && sim.instN) {                                                 // 人和车在平面图上是小方点
       const F = sim.inst, U8 = sim.instU;
