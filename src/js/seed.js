@@ -2,6 +2,7 @@
 function seed() {
   const R = (a, b, w) => ({ a, c: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], b, w });
   S.roads = [R([-220, 0], [220, 0], 14), R([-120, 0], [-120, -200], 8), { a: [-120, -200], c: [20, -275], b: [150, -160], w: 8 }, R([150, -160], [150, 0], 8), R([40, 0], [40, 150], 8), { a: [40, 150], c: [-90, 205], b: [-200, 90], w: 8 }, R([-200, 90], [-200, 0], 8)];
+  S.roads.forEach(ensureLanes);
   let sd = 11; const rnd = () => { sd |= 0; sd = sd + 0x6D2B79F5 | 0; let t = Math.imul(sd ^ sd >>> 15, 1 | sd); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
   const pool = ['house', 'house', 'shop', 'apartment', 'house', 'tree', 'office', 'apartment', 'tree', 'park', 'house', 'factory', 'shop', 'watertower'];
   S.blds = [];

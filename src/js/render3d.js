@@ -32,11 +32,24 @@ function initGL() {
   const sh_ = (t, s) => { const o = gl.createShader(t); gl.shaderSource(o, s); gl.compileShader(o); if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) console.error(gl.getShaderInfoLog(o)); return o; };
   prog = gl.createProgram(); gl.attachShader(prog, sh_(gl.VERTEX_SHADER, VS)); gl.attachShader(prog, sh_(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(prog);
   if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) console.error(gl.getProgramInfoLog(prog));
-  for (const n of ['uVP', 'uSun', 'uSunC', 'uSky', 'uGrid', 'uEye', 'uWin', 'uLit', 'uWater', 'uSand', 'uRock', 'uT', 'uTc', 'uFx', 'uShTex', 'uSh', 'uLVP', 'uTa', 'uTb', 'uTn', 'uAmb', 'uAlpha', 'uFog', 'uNight']) U[n] = gl.getUniformLocation(prog, n);
+  const UN = ['uVP', 'uSun', 'uSunC', 'uSky', 'uGrid', 'uEye', 'uWin', 'uLit', 'uWater', 'uSand', 'uRock', 'uT', 'uTc', 'uFx', 'uShTex', 'uSh', 'uLVP', 'uTa', 'uTb', 'uTn', 'uAmb', 'uAlpha', 'uFog', 'uNight'];
+  for (const n of UN) U[n] = gl.getUniformLocation(prog, n);
+  progI = gl.createProgram(); gl.attachShader(progI, sh_(gl.VERTEX_SHADER, VS_I)); gl.attachShader(progI, sh_(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(progI);
+  if (!gl.getProgramParameter(progI, gl.LINK_STATUS)) console.error(gl.getProgramInfoLog(progI));
+  for (const n of UN) UI[n] = gl.getUniformLocation(progI, n);
   skyProg = gl.createProgram(); gl.attachShader(skyProg, sh_(gl.VERTEX_SHADER, SKY_VS)); gl.attachShader(skyProg, sh_(gl.FRAGMENT_SHADER, SKY_FS)); gl.linkProgram(skyProg);
   if (!gl.getProgramParameter(skyProg, gl.LINK_STATUS)) console.error(gl.getProgramInfoLog(skyProg));
   for (const n of ['uR', 'uUp', 'uF', 'uZen', 'uHor', 'uCloud', 'uEye', 'uSunD', 'uMoonD', 'uPh', 'uSunC', 'uTan', 'uAsp', 'uTc', 'uNight']) SU[n] = gl.getUniformLocation(skyProg, n);
   vaoSky = gl.createVertexArray();
+  { // 实例化用的单位盒子：x、z 在 ±0.5，y 在 0–1
+    const P = [[-.5, 0, -.5], [.5, 0, -.5], [.5, 0, .5], [-.5, 0, .5], [-.5, 1, -.5], [.5, 1, -.5], [.5, 1, .5], [-.5, 1, .5]], cube = [];
+    for (const [q, n] of [[[0, 1, 5, 4], [0, 0, -1]], [[1, 2, 6, 5], [1, 0, 0]], [[2, 3, 7, 6], [0, 0, 1]], [[3, 0, 4, 7], [-1, 0, 0]], [[4, 5, 6, 7], [0, 1, 0]], [[3, 2, 1, 0], [0, -1, 0]]]) for (const k of [0, 1, 2, 0, 2, 3]) cube.push(...P[q[k]], ...n);
+    vaoI = gl.createVertexArray(); gl.bindVertexArray(vaoI); gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer()); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(cube), gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 24, 0); gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 24, 12);
+    bufI = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, bufI);
+    gl.enableVertexAttribArray(3); gl.vertexAttribPointer(3, 4, gl.FLOAT, false, 20, 0); gl.vertexAttribDivisor(3, 1); gl.enableVertexAttribArray(4); gl.vertexAttribPointer(4, 4, gl.UNSIGNED_BYTE, true, 20, 16); gl.vertexAttribDivisor(4, 1);
+    gl.bindVertexArray(null);
+  }
   sh.prog = gl.createProgram(); gl.attachShader(sh.prog, sh_(gl.VERTEX_SHADER, SH_VS)); gl.attachShader(sh.prog, sh_(gl.FRAGMENT_SHADER, SH_FS)); gl.linkProgram(sh.prog); sh.uVP = gl.getUniformLocation(sh.prog, 'uVP');
   sh.tex = gl.createTexture(); sh.fbo = gl.createFramebuffer(); shadowSize(fx.shadow ? SHSZ : 1);
   const mk = () => { const vao = gl.createVertexArray(), buf = gl.createBuffer(); gl.bindVertexArray(vao); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
@@ -176,6 +189,7 @@ function draw3() {
   gl.uniform3fv(SU.uSunD, st.sun); gl.uniform3fv(SU.uMoonD, st.moon); gl.uniform1f(SU.uPh, st.ph); gl.uniform3fv(SU.uSunC, st.col); gl.uniform1f(SU.uTc, cloudT); gl.uniform1f(SU.uNight, st.night);
   gl.uniform3fv(SU.uZen, st.zen); gl.uniform3fv(SU.uHor, sky); gl.uniform3fv(SU.uCloud, st.cloud);
   gl.drawArrays(gl.TRIANGLES, 0, 3); gl.enable(gl.DEPTH_TEST); gl.depthMask(true);
+  const setU = (prog, U) => {                                                  // 两个着色程序（普通网格、实例化的人车）用同一套参数
   gl.useProgram(prog); gl.uniformMatrix4fv(U.uVP, false, VP);
   gl.uniform3fv(U.uSun, st.dir); gl.uniform3fv(U.uSunC, st.col); gl.uniform3fv(U.uRock, v3(W.rock)); gl.uniform1f(U.uTc, cloudT);
   gl.uniform1f(U.uFx, shd ? 1 : 0); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, sh.tex); gl.uniform1i(U.uSh, 0);
@@ -183,7 +197,8 @@ function draw3() {
   gl.uniform3fv(U.uWin, v3(W.win)); gl.uniform3fv(U.uLit, v3(W.lit)); gl.uniform3fv(U.uWater, v3(W.water)); gl.uniform3fv(U.uSand, v3(W.sand));
   gl.uniform1f(U.uAmb, st.amb); gl.uniform1f(U.uNight, st.night); gl.uniform1f(U.uT, (performance.now() / 1000) % 3600);
   gl.uniform1i(U.uTn, shop.open ? 0 : tunSeg.n); gl.uniform4fv(U.uTa, tunSeg.a); gl.uniform4fv(U.uTb, tunSeg.b); gl.uniform1f(U.uFog, Math.max(26000, c.dist * 8));
-  gl.disable(gl.BLEND); gl.uniform1f(U.uAlpha, 1);
+  gl.uniform1f(U.uAlpha, 1); };
+  if (sim.on && sim.instN) setU(progI, UI); setU(prog, U); gl.disable(gl.BLEND);
   const selR = ui.sel && ui.sel.k === 'road' ? S.roads[ui.sel.i] : null, xray = !shop.open && ((ui.tool === 'road' && $('#roadLv').value === '2') || (selR && selR.m === 2));
   const drawTerrain = () => {
   if (TH && !shop.open && terr.mesh) {
@@ -203,6 +218,10 @@ function draw3() {
   };
   if (!xray) drawTerrain();
   gl.bindVertexArray(vaoS); gl.drawArrays(gl.TRIANGLES, 0, stat.n);
+  if (sim.on && sim.instN && !shop.open) {                                     // 所有人和车：一次实例化绘制
+    gl.useProgram(progI); gl.bindVertexArray(vaoI); gl.bindBuffer(gl.ARRAY_BUFFER, bufI); gl.bufferData(gl.ARRAY_BUFFER, new Uint8Array(sim.buf, 0, sim.instN * 20), gl.DYNAMIC_DRAW);
+    gl.drawArraysInstanced(gl.TRIANGLES, 0, 36, sim.instN); gl.useProgram(prog);
+  }
   if (xray) { gl.enable(gl.BLEND); gl.uniform1f(U.uAlpha, 0.55); drawTerrain(); gl.disable(gl.BLEND); gl.uniform1f(U.uAlpha, 1); }   // 修隧道时地形半透明，能看见地下
   if (dyn.n) { gl.enable(gl.BLEND); gl.uniform1f(U.uAlpha, 0.62); gl.bindVertexArray(vaoD); gl.drawArrays(gl.TRIANGLES, 0, dyn.n); }
 }

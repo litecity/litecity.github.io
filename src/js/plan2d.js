@@ -41,13 +41,25 @@ function draw2() {
     g.fillStyle = T.mute; g.font = '600 12px ' + 'Barlow Condensed, sans-serif'; g.textAlign = 'center'; g.fillText('正面', 0, z + 3 * s + 14);
   } else {
     const fade = r => { g.globalAlpha = r.m === 2 ? 0.38 : 1; };                 // 隧道画得淡，桥加一圈深色边
-    for (const r of S.roads) if (r.m === 1) { roadPath(g, r, s); g.lineCap = 'butt'; g.strokeStyle = T.ink; g.lineWidth = (r.w + 3) * s + 4; g.stroke(); g.lineCap = 'round'; }
-    for (const r of S.roads) { fade(r); roadPath(g, r, s); g.strokeStyle = T.walk; g.lineWidth = (r.w + 3) * s; g.stroke(); }
+    for (const r of S.roads) if (r.m === 1) { roadPath(g, r, s); g.lineCap = 'butt'; g.strokeStyle = T.ink; g.lineWidth = (r.w + 4) * s + 4; g.stroke(); g.lineCap = 'round'; }
+    for (const r of S.roads) { const li = laneInfo(r); if (!li.wl && !li.wr) continue; fade(r); roadPath(g, r, s); g.strokeStyle = T.walk; g.lineWidth = (r.w + 4) * s; g.stroke(); }
     for (const r of S.roads) { fade(r); roadPath(g, r, s); g.strokeStyle = T.road; g.lineWidth = r.w * s; g.stroke(); }
-    g.globalAlpha = 1;
-    g.lineCap = 'butt';
-    for (const r of S.roads) { roadPath(g, r, s); g.strokeStyle = T.mark; g.lineWidth = Math.max(1, 0.4 * s); g.setLineDash(r.w >= 12 ? [] : [4 * s, 5 * s]); g.stroke(); }
-    g.setLineDash([]);
+    g.globalAlpha = 1; g.lineCap = 'butt';
+    const offPath = (r, o) => { const p = roadPts(r); g.beginPath(); for (let i = 0; i < p.length; i++) { const x = (p[i].x - p[i].tz * o) * s, z = (p[i].z + p[i].tx * o) * s; if (i) g.lineTo(x, z); else g.moveTo(x, z); } };
+    for (const r of S.roads) {                                                 // 车道线：放大了才画全，缩小时只画对向分隔线
+      const li = laneInfo(r), ls = li.lanes, car = t => t === 'F' || t === 'B'; g.globalAlpha = r.m === 2 ? 0.5 : 1;
+      for (const l of ls) if (l.t === 'X' || l.t === 'M') { offPath(r, l.o); g.strokeStyle = l.t === 'M' ? T.mute : T.walk; g.lineWidth = (l.w - 0.4) * s; g.setLineDash(l.t === 'X' ? [2 * s, 2 * s] : []); g.stroke(); }
+      for (let i = 0; i < ls.length - 1; i++) {
+        const a = ls[i], b = ls[i + 1]; if (a.t === 'M' || b.t === 'M') continue; const opp = car(a.t) && car(b.t) && a.t !== b.t; if (!opp && s < 1.1) continue;
+        offPath(r, a.o + a.w / 2); g.strokeStyle = opp ? T.mark : '#E8ECF0'; g.lineWidth = Math.max(1, (opp ? 0.4 : 0.22) * s); g.setLineDash(car(a.t) && car(b.t) && !opp ? [3 * s, 5 * s] : []); g.stroke();
+      }
+      g.setLineDash([]);
+      if (s > 0.45 && (!li.fwd.length || !li.back.length) && (li.fwd.length || li.back.length)) {      // 单行路：沿路画方向箭头
+        const p = roadPts(r), sg = li.fwd.length ? 1 : -1; g.fillStyle = '#E8ECF0';
+        for (let d = 18; d < p.len - 8; d += Math.max(40, 30 / s)) { const q = atDist(p, d), k = Math.min(r.w * 0.3, 3) * s; g.beginPath(); g.moveTo((q.x + q.tx * sg * 3) * s, (q.z + q.tz * sg * 3) * s); g.lineTo(q.x * s - q.tz * k - q.tx * sg * k, q.z * s + q.tx * k - q.tz * sg * k); g.lineTo(q.x * s + q.tz * k - q.tx * sg * k, q.z * s - q.tx * k - q.tz * sg * k); g.fill(); }
+      }
+    }
+    g.globalAlpha = 1; g.setLineDash([]);
     for (const n of J.nodes) {
       g.fillStyle = T.road; g.beginPath(); g.arc(n.x * s, n.z * s, (n.R + 0.5) * s, 0, TAU); g.fill();
       if (s > 0.6) for (const a of n.arms) { const q = armPoint(a, n.R); if (!q) continue; const hw = a.r.w / 2 - 0.4;
@@ -56,6 +68,10 @@ function draw2() {
     g.setLineDash([]); g.lineCap = 'round';
     const drawB = b => { g.save(); g.translate(b.x * s, b.z * s); g.rotate(b.r); drawAssetPlan(g, S.assets[b.a], s); g.restore(); };
     for (const b of S.blds) drawB(b);
+    if (sim.on && sim.instN) {                                                 // 人和车在平面图上是小方点
+      const F = sim.inst, U8 = sim.instU;
+      for (let c = 0; c < sim.instN; c++) { const u = c * 20 + 16, k = U8[u + 3]; if (k === 1) continue; g.fillStyle = `rgb(${U8[u]},${U8[u + 1]},${U8[u + 2]})`; const d = k === 2 ? Math.max(2, 0.7 * s) : Math.max(3, 2.2 * s); g.fillRect(F[c * 5] * s - d / 2, F[c * 5 + 2] * s - d / 2, d, d); }
+    }
     if (ui.tool === 'build' && ui.hover && !ui.drag) { g.globalAlpha = 0.6; drawB(poseAt(ui.hover)); g.globalAlpha = 1; }
     if (pathTool() && ui.hover) {
       const p = pathPt(ui.hover), w = pathW();

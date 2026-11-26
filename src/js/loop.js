@@ -5,7 +5,7 @@ let fly = null;
 function flyTo(x, z, d) { fly = { x0: camCity.tx, z0: camCity.tz, d0: camCity.dist, x, z, d, t0: performance.now() }; req(); }
 function frame() {
   raf = 0; frames++;
-  const now = performance.now(), dt = Math.min(0.05, (now - lastT) / 1000); lastT = now;
+  const now = performance.now(), rdt = (now - lastT) / 1000, dt = Math.min(0.05, rdt); lastT = now;
   if (fx.cloud) cloudT += Math.min(0.5, (now - lastCT) / 1000); lastCT = now;
   if (edge && !shop.open) {                                                    // 鼠标停在边缘区：镜头朝那边匀速走（先停顿 0.2 秒，免得路过时误触）
     if (now - edge.t0 > 220) { const c = camCity, v = c.dist * 0.9 * dt, sy = Math.sin(c.yaw), cy = Math.cos(c.yaw);
@@ -20,6 +20,7 @@ function frame() {
   if (terrDirty) buildTerrain();
   if (!shop.open && treesStale()) buildTrees();
   if (dirtyGeom) { buildStatic(); dirtyGeom = false; updateMeter(); }
-  buildDyn(); draw3(); draw2();
+  simFrame(rdt);
+  buildDyn(); draw3(); draw2(); inspSync();
 }
-function changed() { dirtyGeom = true; save(); req(); }
+function changed() { dirtyGeom = true; sim.dirty = true; save(); req(); }

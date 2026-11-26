@@ -51,8 +51,8 @@ const hAt = (h, t) => { const f = clamp(t, 0, 1) * (h.length - 1), i = Math.min(
 const roadYAt = (r, t, x, z) => r.h ? hAt(r.h, t) : H(x, z);                    // 路面高度：有纵断面用纵断面，老路贴着地形
 function splitRoad(r, t, X) {
   const sub = (t0, t1) => { if (!r.h) return undefined; const K = Math.max(1, Math.round((r.h.length - 1) * (t1 - t0))); return Array.from({ length: K + 1 }, (_, i) => Math.round(hAt(r.h, t0 + (t1 - t0) * i / K) * 10) / 10); };
-  const l = { a: r.a.slice(), c: [r.a[0] + (r.c[0] - r.a[0]) * t, r.a[1] + (r.c[1] - r.a[1]) * t], b: X.slice(), w: r.w, m: r.m | 0, h: sub(0, t) };
-  const q = { a: X.slice(), c: [r.c[0] + (r.b[0] - r.c[0]) * t, r.c[1] + (r.b[1] - r.c[1]) * t], b: r.b.slice(), w: r.w, m: r.m | 0, h: sub(t, 1) };
+  const l = { a: r.a.slice(), c: [r.a[0] + (r.c[0] - r.a[0]) * t, r.a[1] + (r.c[1] - r.a[1]) * t], b: X.slice(), w: r.w, ln: r.ln, m: r.m | 0, h: sub(0, t) };
+  const q = { a: X.slice(), c: [r.c[0] + (r.b[0] - r.c[0]) * t, r.c[1] + (r.b[1] - r.c[1]) * t], b: r.b.slice(), w: r.w, ln: r.ln, m: r.m | 0, h: sub(t, 1) };
   S.roads.splice(S.roads.indexOf(r), 1, l, q); return [l, q];
 }
 // 纵断面：贴地的路取沿线地形并抹顺（两端钉住）；桥和隧道在两端之间走直线，桥再略微起拱

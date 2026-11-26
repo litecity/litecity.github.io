@@ -14,10 +14,10 @@ function hit(w, tol) {
 }
 const canalMode = () => ui.tool === 'terrain' && ui.tmode === 'canal';
 const pathTool = () => ui.tool === 'road' || canalMode();
-const pathW = () => canalMode() ? numIn('cn-w', 80, 40, 600) : +$('#roadW').value;
+const pathW = () => canalMode() ? numIn('cn-w', 80, 40, 600) : laneInfo({ ln: $('#roadW').value }).w;
 const pathPt = w => canalMode() ? [w[0], w[1]] : snapPt(w);
 function addRoad(a, b, c) {
-  pushUndo(); const r = { a, c: c ? c.slice() : [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], b, w: +$('#roadW').value, m: +$('#roadLv').value | 0 };
+  pushUndo(); const r = { a, c: c ? c.slice() : [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], b, m: +$('#roadLv').value | 0 }; setLanes(r, $('#roadW').value);
   if (TH || r.m) { setProfile(r, endY(a), endY(b)); gradeRoad(r); }
   S.roads.push(r); normalizeRoads([r]); const i = S.roads.indexOf(r); ui.sel = i >= 0 ? { k: 'road', i } : null; changed();
 }
@@ -34,7 +34,7 @@ function press(w, forced) {
     if (!h) { ui.sel = ui.cand = null; req(); return false; }
     if (h.k === 'h') {
       pushUndo(); const r0 = S.roads[ui.sel.i], group = [];
-      if (h.h !== 'm') for (const r of S.roads) for (const e of ['a', 'b']) if (dist2(r[e], r0[h.h]) < 0.3) group.push({ r, e });   // 同一节点上的路一起动
+      if (h.h !== 'm') for (const r of S.roads) for (const e of ['a', 'b']) if (dist2(r[e], r0[h.h]) < 0.3) group.push({ r, e, keep: isLaneJoint(r, e === 'a' ? 'b' : 'a') });   // 同一节点上的路一起动
       ui.drag = { k: 'h', h: h.h, group, skip: new Set(group.map(g => g.r)) }; return true;
     }
     if (ui.sel && ui.sel.k === h.k && ui.sel.i === h.i) {                        // 已选中：建筑可以直接拖
@@ -71,7 +71,13 @@ function dragTo(w) {
       if (Math.hypot(r.c[0] - mx, r.c[1] - mz) < 3) r.c = [mx, mz];      // 接近直线时吸回直线
     } else {
       const p = snapPt(w, d.skip), e = r[d.h], dx = p[0] - e[0], dz = p[1] - e[1];
-      for (const g of d.group) { g.r[g.e] = p.slice(); g.r.c = [g.r.c[0] + dx / 2, g.r.c[1] + dz / 2]; ptsCache.delete(g.r); }   // 端点移动时弯度保持
+      for (const g of d.group) {
+        const fix = g.r[g.e === 'a' ? 'b' : 'a'], l = dist2(fix, g.r.c);
+        g.r[g.e] = p.slice();
+        if (g.keep && l > 0.5) { const k = dist2(fix, p) / 2 / l; g.r.c = [fix[0] + (g.r.c[0] - fix[0]) * k, fix[1] + (g.r.c[1] - fix[1]) * k]; }   // 另一端是车道对齐的接头：保持那一端的走向，这条路自然弯出去
+        else g.r.c = [g.r.c[0] + dx / 2, g.r.c[1] + dz / 2];
+        ptsCache.delete(g.r);
+      }   // 端点移动时弯度保持
     }
     ptsCache.delete(r); dirtyGeom = true;
   } else if (d && d.k === 'bld' && ui.sel) {

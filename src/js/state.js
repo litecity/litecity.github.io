@@ -13,9 +13,10 @@ function restore(d) {
   S.assets = {}; for (const a of BUILTIN) S.assets[a.id] = { ...a, builtin: true };
   for (const a of d.assets || []) { const parts = sanitizeParts(a.parts); if (a.id && parts.length) S.assets[a.id] = { id: String(a.id), name: String(a.name || '资产').slice(0, 16), parts }; }
   const pt = p => Array.isArray(p) && isFinite(p[0]) && isFinite(p[1]);
-  S.roads = (d.roads || []).filter(r => r && pt(r.a) && pt(r.b) && pt(r.c)).map(r => ({ a: [+r.a[0], +r.a[1]], c: [+r.c[0], +r.c[1]], b: [+r.b[0], +r.b[1]], w: r.w >= 12 ? 14 : 8, m: r.m === 1 || r.m === 2 ? r.m : 0,
+  S.roads = (d.roads || []).filter(r => r && pt(r.a) && pt(r.b) && pt(r.c)).map(r => ({ a: [+r.a[0], +r.a[1]], c: [+r.c[0], +r.c[1]], b: [+r.b[0], +r.b[1]], w: r.w >= 12 ? 14 : 8, ln: r.ln, m: r.m === 1 || r.m === 2 ? r.m : 0,
     h: Array.isArray(r.h) && r.h.length >= 2 && r.h.length <= 64 && r.h.every(Number.isFinite) ? r.h.map(Number) : undefined }));
-  S.blds = (d.blds || []).filter(b => b && S.assets[b.a] && isFinite(b.x) && isFinite(b.z)).map(b => ({ a: b.a, x: +b.x, z: +b.z, r: +b.r || 0 }));
+  S.blds = (d.blds || []).filter(b => b && S.assets[b.a] && isFinite(b.x) && isFinite(b.z)).map(b => ({ a: b.a, x: +b.x, z: +b.z, r: +b.r || 0, ...(b.f && typeof b.f === 'object' ? { f: b.f } : {}) }));
+  S.roads.forEach(ensureLanes);
   if (!S.assets[ui.asset]) ui.asset = 'house';
   const e = d.env || {}; S.env = { water: Number.isFinite(e.water) ? e.water : null, lakes: e.lakes != null ? !!e.lakes : !!e.rivers, rivers: !!e.rivers, thr: clamp(+e.thr || 300, 5, 50000),
     src: (Array.isArray(e.src) ? e.src : []).filter(q => q && isFinite(q.x) && isFinite(q.z) && isFinite(q.h)).slice(0, 50).map(q => ({ x: +q.x, z: +q.z, h: +q.h })),

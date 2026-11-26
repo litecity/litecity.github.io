@@ -7,7 +7,7 @@ const unit = v => { const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / 
 // 按时刻算太阳和月亮在天上的位置（北纬 35°，东 = +x，北 = −z）。勾“本地时间”时用这台电脑的时钟。
 // 太阳：由日期得赤纬、由钟点得时角。月亮：由朔望月龄得月相，月亮比太阳晚“月相角”过中天。
 function skyState() {
-  const now = new Date(), hour = fx.local ? now.getHours() + now.getMinutes() / 60 : fx.hour, lat = 35 * D2R;
+  const now = new Date(), hour = sim.on ? (sim.t / 3600) % 24 : fx.local ? now.getHours() + now.getMinutes() / 60 : fx.hour, lat = 35 * D2R;
   const N = Math.floor((now - new Date(now.getFullYear(), 0, 0)) / 864e5);
   const at = (ha, dc) => {
     const se = Math.sin(lat) * Math.sin(dc) + Math.cos(lat) * Math.cos(dc) * Math.cos(ha), el = Math.asin(clamp(se, -1, 1)), ce = Math.cos(el);
@@ -31,7 +31,7 @@ function skyState() {
 const hhmm = h => String(Math.floor(h) % 24).padStart(2, '0') + ':' + String(Math.round((h % 1) * 60) % 60).padStart(2, '0');
 function syncFx() {
   $('#fx-sh').checked = fx.shadow; $('#fx-cl').checked = fx.cloud; $('#fx-lt').checked = fx.local;
-  const h = skyState().hour; $('#fx-hr').disabled = fx.local; $('#fx-hr').value = h; $('#fx-tm').textContent = hhmm(h);
+  const h = skyState().hour; $('#fx-hr').disabled = fx.local || sim.on; $('#fx-hr').value = h; $('#fx-tm').textContent = hhmm(h);
 }
 function saveFx() { try { localStorage.setItem('litecity-fx', JSON.stringify(fx)); } catch (e) {} syncFx(); req(); }
 $('#fx-sh').onchange = e => { fx.shadow = e.target.checked; shadowSize(fx.shadow ? SHSZ : 1); saveFx(); };

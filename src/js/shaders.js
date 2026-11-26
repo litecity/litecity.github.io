@@ -2,7 +2,7 @@
 const c3 = $('#c3'), c2 = $('#c2'), g2 = c2.getContext('2d');
 const gl = c3.getContext('webgl2', { antialias: true, alpha: false, powerPreference: 'low-power' });
 const stat = new Mesh(4096), dyn = new Mesh(512);
-let prog, U = {}, skyProg, SU = {}, vaoSky, vaoS, vaoD, vaoT, vaoTr, bufS, bufD, bufT, bufTr;
+let prog, progI, UI = {}, vaoI, bufI, U = {}, skyProg, SU = {}, vaoSky, vaoS, vaoD, vaoT, vaoTr, bufS, bufD, bufT, bufTr;
 const VS = `#version 300 es
 layout(location=0) in vec3 aP; layout(location=1) in vec3 aN; layout(location=2) in vec4 aC;
 uniform mat4 uVP; out vec3 vP; out vec3 vN; out vec4 vC;
@@ -124,6 +124,17 @@ void main(){                                      // 天空：渐变、星星、
     c=mix(c,cc,cl*.93);
   }
   o=vec4(c,1.);
+}`;
+const VS_I = `#version 300 es
+layout(location=0) in vec3 aP; layout(location=1) in vec3 aN; layout(location=3) in vec4 aI; layout(location=4) in vec4 aK;
+uniform mat4 uVP; out vec3 vP; out vec3 vN; out vec4 vC;
+void main(){                                      // 人和车：一个单位盒子按实例放大、转向、平移。种类 0 车身、1 车窗、2 行人
+  float k=floor(aK.a*255.+.5);
+  vec3 sz=k<.5 ? vec3(4.4,.8,1.9) : k<1.5 ? vec3(2.3,.62,1.7) : vec3(.5,1.7,.5);
+  vec3 q=aP*sz; q.y+=k<.5 ? .25 : k<1.5 ? 1.05 : 0.; if(k>.5&&k<1.5) q.x-=.35;
+  float c=cos(aI.w), s=sin(aI.w);
+  vP=vec3(q.x*c-q.z*s,q.y,q.x*s+q.z*c)+aI.xyz; vN=vec3(aN.x*c-aN.z*s,aN.y,aN.x*s+aN.z*c); vC=vec4(aK.rgb,1.);
+  gl_Position=uVP*vec4(vP,1.);
 }`;
 const SH_VS = `#version 300 es
 layout(location=0) in vec3 aP; uniform mat4 uVP; void main(){ gl_Position=uVP*vec4(aP,1.); }`;

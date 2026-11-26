@@ -144,3 +144,18 @@ button,input,select,textarea{font:inherit;color:inherit}
   .stage.only2,.stage.only3{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr)}
   .stage.shopping.only2,.stage.shopping.only3{grid-template-columns:1fr;grid-template-rows:minmax(0,1.25fr) minmax(0,1fr)}
 }
+
+/* 属性面板（道路车道、建筑人流）*/
+.stage{position:relative}
+.insp{position:absolute;left:8px;top:44px;width:min(290px,calc(100% - 16px));max-height:calc(100% - 110px);overflow:auto;z-index:3;display:flex;flex-direction:column;gap:6px;
+  background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:9px;font-size:12.5px;box-shadow:0 6px 18px rgba(0,0,0,.14)}
+.insp h3{font-size:12px;letter-spacing:.08em;color:var(--mute);margin:2px 0 0;font-weight:600}
+.insp label{display:flex;align-items:center;gap:5px;flex-wrap:wrap} .insp input[type=number],.insp input[type=text],.insp select{background:var(--bg);border:1px solid var(--line);border-radius:5px;padding:3px 6px;min-width:0}
+.insp input[type=text]{width:100%} .insp .note{color:var(--mute);font-size:11.5px;line-height:1.4}
+.lanes{display:flex;gap:2px;align-items:stretch;overflow-x:auto;padding-bottom:2px}
+.lanes .ln{flex:0 0 auto;width:26px;height:34px;border:1px solid var(--line);border-radius:3px;cursor:pointer;font-weight:700;padding:0;background:var(--road);color:#fff}
+.lanes .ln-B{background:color-mix(in srgb,var(--road) 78%,#000)} .lanes .ln-S{width:20px;background:color-mix(in srgb,var(--road) 55%,var(--panel));color:var(--ink);font-size:11px}
+.lanes .ln-X{background:repeating-linear-gradient(45deg,var(--walk) 0 4px,var(--panel) 4px 8px);color:var(--danger)} .lanes .ln-M{width:12px;background:var(--mute)}
+.lanes .lw{flex:0 0 auto;width:16px;font-style:normal;font-size:9px;writing-mode:vertical-rl;text-align:center;background:var(--walk);color:var(--ink);border-radius:3px}
+.simbar{display:flex;align-items:center;gap:6px} .simbar select{background:var(--panel);border:1px solid var(--line);border-radius:5px;padding:4px 6px}
+.simhud{font-family:var(--f-num);font-size:12.5px;font-variant-numeric:tabular-nums;color:var(--mute);white-space:nowrap}

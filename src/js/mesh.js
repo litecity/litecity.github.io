@@ -56,6 +56,28 @@ function ribbon(m, pts, hw, y, col, mat, yf) {
     tri(m, al, ar, br, col, mat); tri(m, al, br, bl, col, mat);
   }
 }
+function strip(m, pts, o0, o1, y, col, mat, yf) {                               // 路面上一条带子：横向从偏移 o0 到 o1（沿右手法线）
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i], b = pts[i + 1], ya = y + (yf ? yf(a) : H(a.x, a.z)), yb = y + (yf ? yf(b) : H(b.x, b.z));
+    const a0 = [a.x - a.tz * o0, ya, a.z + a.tx * o0], a1 = [a.x - a.tz * o1, ya, a.z + a.tx * o1], b0 = [b.x - b.tz * o0, yb, b.z + b.tx * o0], b1 = [b.x - b.tz * o1, yb, b.z + b.tx * o1];
+    tri(m, a0, a1, b1, col, mat); tri(m, a0, b1, b0, col, mat);
+  }
+}
+// 车道标线：同向车道之间白虚线，对向之间黄实线，应急车道和封闭车道用白实线隔开；每条车道隔一段画一个行驶方向箭头
+function laneMarks(m, r, pts, y, d0, d1, yf) {
+  const li = laneInfo(r), ls = li.lanes, hw = li.w / 2, mark = hex2rgb(W.mark), white = [232, 236, 240], car = t => t === 'F' || t === 'B';
+  for (const l of ls) { if (l.t === 'X') strip(m, pts, l.o - l.w / 2 + 0.25, l.o + l.w / 2 - 0.25, y - 0.03, [150, 154, 158], 255, yf); else if (l.t === 'M') strip(m, pts, l.o - l.w / 2, l.o + l.w / 2, y + 0.16, CONC, 255, yf); }
+  for (let i = 0; i < ls.length - 1; i++) {
+    const a = ls[i], b = ls[i + 1], x = a.o + a.w / 2; if (a.t === 'M' || b.t === 'M') continue;
+    if (car(a.t) && car(b.t)) { if (a.t === b.t) dashes(m, pts, x, y, white, d0, d1, yf); else strip(m, pts, x - 0.14, x + 0.14, y, mark, 255, yf); }
+    else strip(m, pts, x - 0.09, x + 0.09, y, white, 255, yf);
+  }
+  if (!li.wl) strip(m, pts, -hw + 0.2, -hw + 0.38, y, white, 255, yf); if (!li.wr) strip(m, pts, hw - 0.38, hw - 0.2, y, white, 255, yf);
+  for (const l of ls) if (car(l.t)) for (let d = 16; d < pts.len - 10; d += 80) {
+    const p = atDist(pts, d), sg = l.t === 'F' ? 1 : -1, yy = y + (yf ? yf(p) : H(p.x, p.z)), cx = p.x - p.tz * l.o, cz = p.z + p.tx * l.o;
+    tri(m, [cx + p.tx * sg * 2.4, yy, cz + p.tz * sg * 2.4], [cx - p.tx * sg * 1.2 - p.tz * 0.7, yy, cz - p.tz * sg * 1.2 + p.tx * 0.7], [cx - p.tx * sg * 1.2 + p.tz * 0.7, yy, cz - p.tz * sg * 1.2 - p.tx * 0.7], white, 255);
+  }
+}
 function disc(m, x, z, rad, y, col, mat, base) {
   y += base != null ? base : H(x, z);
   for (let i = 0; i < 12; i++) { const a0 = i / 12 * TAU, a1 = (i + 1) / 12 * TAU; tri(m, [x, y, z], [x + Math.cos(a0) * rad, y, z + Math.sin(a0) * rad], [x + Math.cos(a1) * rad, y, z + Math.sin(a1) * rad], col, mat); }
@@ -74,14 +96,15 @@ function emitRoad(m, r) {
   const pts = roadPts(r), hw = r.w / 2, walk = hex2rgb(W.walk), road = hex2rgb(W.road), mark = hex2rgb(W.mark), white = [232, 236, 240];
   const yf = r.h ? p => hAt(r.h, p.t) : null, L = r.h ? 0.35 : lift(), ya = r.h ? r.h[0] : null, yb = r.h ? r.h[r.h.length - 1] : null;
   if (r.m === 2) return emitTunnel(m, r, pts, yf);
-  ribbon(m, pts, hw + 1.5, L + 0.06, walk, 255, yf); ribbon(m, pts, hw, L + 0.14, road, 255, yf);
-  for (const [e, y] of [[r.a, ya], [r.b, yb]]) { disc(m, e[0], e[1], hw + 1.5, L + 0.06, walk, 255, y); disc(m, e[0], e[1], hw, L + 0.14, road, 255, y); }
+  const li = laneInfo(r), sw = li.wl || li.wr ? LW.W : 0;
+  ribbon(m, pts, hw, L + 0.14, road, 255, yf);
+  if (li.wl) strip(m, pts, -hw - LW.W, -hw, L + 0.26, walk, 255, yf); if (li.wr) strip(m, pts, hw, hw + LW.W, L + 0.26, walk, 255, yf);
+  for (const [e, y] of [[r.a, ya], [r.b, yb]]) disc(m, e[0], e[1], hw, L + 0.14, road, 255, y);
   const je = J.ends.get(r), d0 = je && je.a ? je.a + 5 : 3, d1 = je && je.b ? je.b + 5 : 0;           // 标线在路口前停住
-  if (r.w >= 12) { ribbon(m, pts, 0.25, L + 0.22, mark, 255, yf); dashes(m, pts, r.w / 4, L + 0.22, white, d0, d1, yf); dashes(m, pts, -r.w / 4, L + 0.22, white, d0, d1, yf); }
-  else dashes(m, pts, 0, L + 0.22, mark, d0, d1, yf);
+  laneMarks(m, r, pts, L + 0.22, d0, d1, yf);
   const Y = p => yf ? yf(p) : H(p.x, p.z);
   if (r.m === 1) {                                                             // 桥：桥面板、两侧挡板和栏杆、够高的地方立桥墩
-    const w = hw + 1.5, side = (p, sg, y) => [p.x - p.tz * w * sg, y, p.z + p.tx * w * sg];
+    const w = hw + sw + 0.3, side = (p, sg, y) => [p.x - p.tz * w * sg, y, p.z + p.tx * w * sg];
     ribbon(m, pts, w, L - 1.3, CONC, 255, yf);
     for (let i = 0; i < pts.length - 1; i++) { const a = pts[i], b = pts[i + 1], A = Y(a) + L, B = Y(b) + L, ctr = [(a.x + b.x) / 2, (A + B) / 2, (a.z + b.z) / 2];
       for (const sg of [1, -1]) { const q = [side(a, sg, A - 1.3), side(b, sg, B - 1.3), side(b, sg, B + 1.1), side(a, sg, A + 1.1)]; tri(m, q[0], q[1], q[2], CONC, 255, ctr); tri(m, q[0], q[2], q[3], CONC, 255, ctr); } }
@@ -90,7 +113,7 @@ function emitRoad(m, r) {
   // 路灯：每 34 m 一盏，左右交替；灯头是不受光照影响的发光面
   const pole = [72, 78, 86], glow = hex2rgb(W.lit); let sg = 1;
   for (let d = (je && je.a ? je.a + 9 : 12); d < pts.len - (je && je.b ? je.b + 9 : 12) && lampN < 1500; d += 34, sg = -sg, lampN++) {
-    const p = atDist(pts, d), y = Y(p) + L, nx = -p.tz * sg, nz = p.tx * sg, at = k => [p.x + nx * k, p.z + nz * k], rot = Math.atan2(p.tx, -p.tz) / D2R, P = at(hw + 0.9), A = at(hw), G = at(hw - 0.7);
+    const p = atDist(pts, d), y = Y(p) + L, nx = -p.tz * sg, nz = p.tx * sg, at = k => [p.x + nx * k, p.z + nz * k], rot = Math.atan2(p.tx, -p.tz) / D2R, P = at(hw + (sw ? 0.9 : 0.45)), A = at(hw - 0.3), G = at(hw - 1.1);
     emitPart(m, { s: 'box', x: P[0], z: P[1], y, w: 0.24, d: 0.24, h: 6.6 }, ID_TF, pole);
     emitPart(m, { s: 'box', x: A[0], z: A[1], y: y + 6.5, w: 2, d: 0.16, h: 0.14, r: rot }, ID_TF, pole);
     emitPart(m, { s: 'box', x: G[0], z: G[1], y: y + 6.34, w: 1, d: 0.4, h: 0.16, r: rot, mat: 240 }, ID_TF, glow);
@@ -101,7 +124,7 @@ function emitTunnel(m, r, pts, yf) {
   const hw = r.w / 2, wi = hw + 0.8, road = hex2rgb(W.road), mark = hex2rgb(W.mark), wallc = [176, 178, 176], roofc = [128, 131, 134], lamp = hex2rgb(W.lit);
   const hall = J.hall.get(r) || { a: 0, b: 0 }, je = J.ends.get(r);
   ribbon(m, pts, wi, 0.1, road, 255, yf); ribbon(m, pts, wi, TH_T, roofc, 255, yf); ribbon(m, pts, 0.4, TH_T - 0.06, lamp, 240, yf);
-  dashes(m, pts, 0, 0.18, mark, je && je.a ? je.a + 5 : 3, je && je.b ? je.b + 5 : 0, yf);
+  laneMarks(m, r, pts, 0.18, je && je.a ? je.a + 5 : 3, je && je.b ? je.b + 5 : 0, yf);
   const d0 = hall.a, d1 = pts.len - hall.b; if (d1 - d0 < 1) return;
   const n = Math.max(1, Math.ceil((d1 - d0) / 9)), P = []; for (let i = 0; i <= n; i++) P.push(atDist(pts, d0 + (d1 - d0) * i / n));
   for (let i = 0; i < n; i++) { const a = P[i], b = P[i + 1], A = yf(a), B = yf(b);
