@@ -25,8 +25,13 @@ function emitPart(m, p, tf, colOverride) {
   const cr = Math.cos((p.r || 0) * D2R), sr = Math.sin((p.r || 0) * D2R);
   const L = (lx, ly, lz) => tf(p.x + lx * cr - lz * sr, p.y + ly, p.z + lx * sr + lz * cr);
   const col = colOverride || hex2rgb(p.c), mat = p.mat || (p.win ? 128 : 255), hw = p.w / 2, hd = p.d / 2, h = p.h;
-  const ctr = L(0, p.s === 'box' || p.s === 'cyl' ? h / 2 : h / 4, 0);
+  const ctr = L(0, p.s === 'box' || p.s === 'cyl' || p.s === 'ball' ? h / 2 : h / 4, 0);
   const T = (a, b, c) => tri(m, a, b, c, col, mat, ctr), Q = (a, b, c, d) => { T(a, b, c); T(a, c, d); };
+  if (p.s === 'ball') {                                                          // 椭球：上下两个尖顶加三圈，8 条棱
+    const N = 8, rings = [[0, 0], [0.16, 0.72], [0.5, 1], [0.84, 0.72], [1, 0]], pt = (k, i) => { const a = i / N * TAU; return L(Math.cos(a) * hw * rings[k][1], h * rings[k][0], Math.sin(a) * hd * rings[k][1]); };
+    for (let k = 0; k < 4; k++) for (let i = 0; i < N; i++) { const a = pt(k, i), b = pt(k, i + 1), c = pt(k + 1, i + 1), d = pt(k + 1, i); if (k > 0) T(a, b, c); if (k < 3) T(a, c, d); }
+    return;
+  }
   if (p.s === 'cyl' || p.s === 'cone') {
     const N = 12, top = L(0, h, 0);
     for (let i = 0; i < N; i++) {
@@ -52,7 +57,7 @@ function baseY(b, asset) {                                                      
 }
 function emitAsset(m, asset, b, col) {
   const c = Math.cos(b.r), s = Math.sin(b.r), y0 = baseY(b, asset), sx = b.sx || 1, tf = (x, y, z) => [b.x + x * sx * c - z * s, y0 + y, b.z + x * sx * s + z * c];
-  for (const p of asset.parts) emitPart(m, p, tf, col);
+  for (const p of partsOf(asset, b)) emitPart(m, p, tf, col);
 }
 function ribbon(m, pts, hw, y, col, mat, yf) {
   for (let i = 0; i < pts.length - 1; i++) {

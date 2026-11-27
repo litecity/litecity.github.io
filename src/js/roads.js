@@ -165,7 +165,7 @@ function snapToRoad(b) {
 }
 function poseAt(w) {
   const b = { a: ui.asset, x: w[0], z: w[1], r: ui.rot }, as = S.assets[ui.asset];
-  if (as.prop) { if (as.label) b.t = as.label.def; if (ui.snap && as.sign) snapSign(b, as); } else if (ui.snap) snapToRoad(b);
+  if (as.prop) { if (as.variants) b.st = ui.signStyle || 'us'; if (as.label) b.t = labelOf(as, b).def; if (ui.snap && as.sign) snapSign(b, as); } else if (ui.snap) snapToRoad(b);
   return b;
 }
 function snapSign(b, as) {                                                       // 路牌贴路：普通牌子立在路边、面向这一侧的来车；门架横跨整条路，宽度跟着路宽

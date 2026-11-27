@@ -2,7 +2,7 @@
 const c3 = $('#c3'), c2 = $('#c2'), g2 = c2.getContext('2d');
 const gl = c3.getContext('webgl2', { antialias: true, alpha: false, powerPreference: 'low-power' });
 const stat = new Mesh(4096), dyn = new Mesh(512);
-let prog, progI, UI = {}, vaoI, bufI, U = {}, skyProg, SU = {}, vaoSky, vaoS, vaoD, vaoT, vaoTr, bufS, bufD, bufT, bufTr;
+let prog, progI, UI = {}, progT, UT = {}, bufTi, vaoI, bufI, U = {}, skyProg, SU = {}, vaoSky, vaoS, vaoD, vaoT, vaoTr, bufS, bufD, bufT, bufTr;
 const VS = `#version 300 es
 layout(location=0) in vec3 aP; layout(location=1) in vec3 aN; layout(location=2) in vec4 aC;
 uniform mat4 uVP; out vec3 vP; out vec3 vN; out vec4 vC;
@@ -136,6 +136,20 @@ void main(){                                      // 人和车：一个单位盒
   vP=vec3(q.x*c-q.z*s,q.y,q.x*s+q.z*c)+aI.xyz; vN=vec3(aN.x*c-aN.z*s,aN.y,aN.x*s+aN.z*c); vC=vec4(aK.rgb,1.);
   gl_Position=uVP*vec4(vP,1.);
 }`;
+const VS_T = `#version 300 es
+layout(location=0) in vec3 aP; layout(location=1) in vec3 aN; layout(location=2) in vec4 aC; layout(location=3) in vec4 aI; layout(location=4) in vec4 aK;
+uniform mat4 uVP; uniform float uT, uSway; out vec3 vP; out vec3 vN; out vec4 vC;
+void main(){                                      // 树：模型按“树高 = 1”做，实例给出位置、朝向、树高和叶色；模拟开着时树梢随风轻轻摆
+  float hs=aK.a*40., c=cos(aI.w), s=sin(aI.w); vec3 q=aP*hs;
+  vec3 w=vec3(q.x*c-q.z*s,q.y,q.x*s+q.z*c); float ph=aI.x*.05+aI.z*.07;
+  w.xz+=uSway*aP.y*aP.y*hs*.03*vec2(sin(uT*1.3+ph)+.5*sin(uT*2.9+ph*1.7),cos(uT*1.1+ph*1.3)+.4*sin(uT*2.3+ph));
+  vP=w+aI.xyz; vN=vec3(aN.x*c-aN.z*s,aN.y,aN.x*s+aN.z*c);
+  vC=vec4(aC.a<.99 ? aC.rgb*aK.rgb*1.085 : aC.rgb,1.);                         // 叶子（材质值 250）乘上这棵树自己的叶色
+  gl_Position=uVP*vec4(vP,1.);
+}`;
+const SH_VS_T = `#version 300 es
+layout(location=0) in vec3 aP; layout(location=3) in vec4 aI; layout(location=4) in vec4 aK; uniform mat4 uVP;
+void main(){ float hs=aK.a*40., c=cos(aI.w), s=sin(aI.w); vec3 q=aP*hs; gl_Position=uVP*vec4(vec3(q.x*c-q.z*s,q.y,q.x*s+q.z*c)+aI.xyz,1.); }`;
 const SH_VS = `#version 300 es
 layout(location=0) in vec3 aP; uniform mat4 uVP; void main(){ gl_Position=uVP*vec4(aP,1.); }`;
 const SH_FS = `#version 300 es

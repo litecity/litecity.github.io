@@ -21,9 +21,9 @@ function shadowPass(sun, c) {                                                   
       const lod = dd < 2600 ? 0 : dd < 6000 ? 1 : 2; gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 20, k * CV * 20);
       gl.drawElements(gl.TRIANGLES, LODN[lod], gl.UNSIGNED_SHORT, (lod === 0 ? 0 : lod === 1 ? LODN[0] : LODN[0] + LODN[1]) * 2);
     }
-    if (treeM.n) { gl.bindVertexArray(vaoTr); gl.drawArrays(gl.TRIANGLES, 0, treeM.n); }
   }
   gl.bindVertexArray(vaoS); gl.drawArrays(gl.TRIANGLES, 0, stat.n);
+  if (treeG.length) { gl.useProgram(sh.progT); gl.uniformMatrix4fv(sh.uVPT, false, LVP); drawTrees(sh.progT, null); }
   gl.disable(gl.POLYGON_OFFSET_FILL); gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   return { LVP, tex: 2 * E / SHSZ };
 }
@@ -37,6 +37,9 @@ function initGL() {
   progI = gl.createProgram(); gl.attachShader(progI, sh_(gl.VERTEX_SHADER, VS_I)); gl.attachShader(progI, sh_(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(progI);
   if (!gl.getProgramParameter(progI, gl.LINK_STATUS)) console.error(gl.getProgramInfoLog(progI));
   for (const n of UN) UI[n] = gl.getUniformLocation(progI, n);
+  progT = gl.createProgram(); gl.attachShader(progT, sh_(gl.VERTEX_SHADER, VS_T)); gl.attachShader(progT, sh_(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(progT);
+  if (!gl.getProgramParameter(progT, gl.LINK_STATUS)) console.error(gl.getProgramInfoLog(progT));
+  for (const n of UN) UT[n] = gl.getUniformLocation(progT, n); UT.uSway = gl.getUniformLocation(progT, 'uSway');
   skyProg = gl.createProgram(); gl.attachShader(skyProg, sh_(gl.VERTEX_SHADER, SKY_VS)); gl.attachShader(skyProg, sh_(gl.FRAGMENT_SHADER, SKY_FS)); gl.linkProgram(skyProg);
   if (!gl.getProgramParameter(skyProg, gl.LINK_STATUS)) console.error(gl.getProgramInfoLog(skyProg));
   for (const n of ['uR', 'uUp', 'uF', 'uZen', 'uHor', 'uCloud', 'uEye', 'uSunD', 'uMoonD', 'uPh', 'uSunC', 'uTan', 'uAsp', 'uTc', 'uNight']) SU[n] = gl.getUniformLocation(skyProg, n);
@@ -51,12 +54,15 @@ function initGL() {
     gl.bindVertexArray(null);
   }
   sh.prog = gl.createProgram(); gl.attachShader(sh.prog, sh_(gl.VERTEX_SHADER, SH_VS)); gl.attachShader(sh.prog, sh_(gl.FRAGMENT_SHADER, SH_FS)); gl.linkProgram(sh.prog); sh.uVP = gl.getUniformLocation(sh.prog, 'uVP');
+  sh.progT = gl.createProgram(); gl.attachShader(sh.progT, sh_(gl.VERTEX_SHADER, SH_VS_T)); gl.attachShader(sh.progT, sh_(gl.FRAGMENT_SHADER, SH_FS)); gl.linkProgram(sh.progT); sh.uVPT = gl.getUniformLocation(sh.progT, 'uVP');
   sh.tex = gl.createTexture(); sh.fbo = gl.createFramebuffer(); shadowSize(fx.shadow ? SHSZ : 1);
   const mk = () => { const vao = gl.createVertexArray(), buf = gl.createBuffer(); gl.bindVertexArray(vao); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
     gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 20, 0);
     gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 3, gl.BYTE, true, 20, 12);
     gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 4, gl.UNSIGNED_BYTE, true, 20, 16); return [vao, buf]; };
-  [vaoS, bufS] = mk(); [vaoD, bufD] = mk(); [vaoTr, bufTr] = mk(); [vaoT, bufT] = mk();
+  [vaoS, bufS] = mk(); [vaoD, bufD] = mk(); [vaoTr, bufTr] = mk();
+  bufTi = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, bufTi); gl.enableVertexAttribArray(3); gl.vertexAttribPointer(3, 4, gl.FLOAT, false, 20, 0); gl.vertexAttribDivisor(3, 1); gl.enableVertexAttribArray(4); gl.vertexAttribPointer(4, 4, gl.UNSIGNED_BYTE, true, 20, 16); gl.vertexAttribDivisor(4, 1);
+  [vaoT, bufT] = mk();
   const idx = new Uint16Array(LODN[0] + LODN[1] + LODN[2]), cw = CH + 1; let q = 0;   // 三档精度的索引，所有分块共用
   for (const st of [1, 2, 4]) for (let j = 0; j < CH; j += st) for (let i = 0; i < CH; i += st) { const o = j * cw + i; idx[q++] = o; idx[q++] = o + cw * st; idx[q++] = o + st; idx[q++] = o + st; idx[q++] = o + cw * st; idx[q++] = o + cw * st + st; }
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, gl.createBuffer()); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, idx, gl.STATIC_DRAW); gl.bindVertexArray(null);
@@ -110,7 +116,7 @@ function buildStatic() {
   const gq = (x0, z0, x1, z1) => { tri(m, [x0, 0, z0], [x1, 0, z0], [x1, 0, z1], gc, 0); tri(m, [x0, 0, z0], [x1, 0, z1], [x0, 0, z1], gc, 0); };
   if (shop.open || !TH) gq(-G, -G, G, G);                                    // 有地形时，底面和四周岩壁归地形那一遍画
   if (shop.open) { emitAsset(m, shop.draft, { x: 0, z: 0, r: 0 }); }
-  else { computeJ(); lampN = 0; for (const r of S.roads) emitRoad(m, r); emitJunctions(m); tunnelHoles(); for (const b of S.blds) emitAsset(m, S.assets[b.a], b); }
+  else { computeJ(); lampN = 0; for (const r of S.roads) emitRoad(m, r); emitJunctions(m); tunnelHoles(); treeExtra = []; for (const b of S.blds) { const as = S.assets[b.a]; if (as.tree) treeExtra.push(b); else emitAsset(m, as, b); } treesDirty = true; }
   if (gl) { gl.bindBuffer(gl.ARRAY_BUFFER, bufS); gl.bufferData(gl.ARRAY_BUFFER, m.u.subarray(0, m.n * 20), gl.STATIC_DRAW); }
 }
 function buildDyn() {
@@ -171,7 +177,7 @@ function drawSignText(VP, eye) {
   const cv = $('#c3t'), g = cv.getContext('2d'); if (cv.width !== c3.width || cv.height !== c3.height) { cv.width = c3.width; cv.height = c3.height; } g.clearRect(0, 0, cv.width, cv.height);
   if (shop.open) return; const Wp = cv.width, Hp = cv.height, th = Math.tan(FOV / 2);
   for (const b of S.blds) {
-    const as = S.assets[b.a], lb = as.label; if (!lb || !b.t) continue; const fx_ = -Math.sin(b.r), fz_ = Math.cos(b.r), x = b.x + fx_ * 0.2, z = b.z + fz_ * 0.2, y = baseY(b, as) + lb.y;
+    const as = S.assets[b.a], lb = labelOf(as, b); if (!lb || !b.t) continue; const fx_ = -Math.sin(b.r), fz_ = Math.cos(b.r), x = b.x + fx_ * 0.2, z = b.z + fz_ * 0.2, y = baseY(b, as) + lb.y;
     const cw = VP[3] * x + VP[7] * y + VP[11] * z + VP[15]; if (cw < 2 || cw > 1100) continue;
     const dx = eye[0] - x, dz = eye[2] - z, dl = Math.hypot(dx, dz) || 1, facing = (fx_ * dx + fz_ * dz) / dl; if (facing < 0.15) continue;                    // 从背面或侧面看不到字
     const ppm = Hp / 2 / (th * cw), hpx = lb.h * ppm; if (hpx < 7) continue;
@@ -219,7 +225,7 @@ function draw3() {
   gl.uniform1f(U.uAmb, st.amb); gl.uniform1f(U.uNight, st.night); gl.uniform1f(U.uT, (performance.now() / 1000) % 3600);
   gl.uniform1i(U.uTn, shop.open ? 0 : tunSeg.n); gl.uniform4fv(U.uTa, tunSeg.a); gl.uniform4fv(U.uTb, tunSeg.b); gl.uniform1f(U.uFog, Math.max(26000, c.dist * 8));
   gl.uniform1f(U.uAlpha, 1); };
-  if (sim.on && sim.instN) setU(progI, UI); setU(prog, U); gl.disable(gl.BLEND);
+  if (sim.on && sim.instN) setU(progI, UI); if (treeG.length) setU(progT, UT); setU(prog, U); gl.disable(gl.BLEND);
   const selR = ui.sel && ui.sel.k === 'road' ? S.roads[ui.sel.i] : null, xray = !shop.open && ((ui.tool === 'road' && $('#roadLv').value === '2') || (selR && selR.m === 2));
   const drawTerrain = () => {
   if (TH && !shop.open && terr.mesh) {
@@ -234,11 +240,11 @@ function draw3() {
       ptr(c * CV * 20); gl.drawElements(gl.TRIANGLES, LODN[lod], gl.UNSIGNED_SHORT, (lod === 0 ? 0 : lod === 1 ? LODN[0] : LODN[0] + LODN[1]) * 2);
     }
     ptr(CN * CN * CV * 20); gl.drawArrays(gl.TRIANGLES, 0, terr.skirtN);
-    if (treeM.n) { gl.bindVertexArray(vaoTr); gl.drawArrays(gl.TRIANGLES, 0, treeM.n); }
   }
   };
   if (!xray) drawTerrain();
   gl.bindVertexArray(vaoS); gl.drawArrays(gl.TRIANGLES, 0, stat.n);
+  if (treeG.length && !shop.open) { drawTrees(progT, UT.uSway); gl.useProgram(prog); }
   if (sim.on && sim.instN && !shop.open) {                                     // 所有人和车：一次实例化绘制
     gl.useProgram(progI); gl.bindVertexArray(vaoI); gl.bindBuffer(gl.ARRAY_BUFFER, bufI); gl.bufferData(gl.ARRAY_BUFFER, new Uint8Array(sim.buf, 0, sim.instN * 20), gl.DYNAMIC_DRAW);
     gl.drawArraysInstanced(gl.TRIANGLES, 0, 36, sim.instN); gl.useProgram(prog);

@@ -221,11 +221,11 @@ button,input,select,textarea{font:inherit;color:inherit}
       <div class="row" id="addRow">
         <button class="btn sm" data-add="box">＋方体</button><button class="btn sm" data-add="gable">＋坡顶</button>
         <button class="btn sm" data-add="pyr">＋锥顶</button><button class="btn sm" data-add="cyl">＋圆柱</button>
-        <button class="btn sm" data-add="cone">＋圆锥</button>
+        <button class="btn sm" data-add="cone">＋圆锥</button><button class="btn sm" data-add="ball">＋椭球</button>
       </div>
       <div class="parts" id="partList"></div>
       <div class="fields" id="fields">
-        <label class="wide">形状<select id="pf-s"><option value="box">方体</option><option value="gable">双坡顶</option><option value="pyr">四棱锥</option><option value="cyl">圆柱</option><option value="cone">圆锥</option></select></label>
+        <label class="wide">形状<select id="pf-s"><option value="box">方体</option><option value="gable">双坡顶</option><option value="pyr">四棱锥</option><option value="cyl">圆柱</option><option value="ball">椭球</option><option value="cone">圆锥</option></select></label>
         <label class="wide">颜色<input type="color" id="pf-c"></label>
         <label>X 左右<input type="number" step="0.5" id="pf-x"></label>
         <label>Z 前后<input type="number" step="0.5" id="pf-z"></label>
@@ -299,6 +299,7 @@ button,input,select,textarea{font:inherit;color:inherit}
       <div class="fields">
         <label>半径 m<input type="number" id="tr-rad" value="200" step="10" min="20"></label>
         <label>密度<input type="number" id="tr-den" value="0.7" step="0.1" min="0.05" max="1"></label>
+        <label class="wide" style="grid-column:1/-1">林子<select id="tr-reg"></select></label>
         <label class="chk"><input type="checkbox" id="tr-erase"> 擦除</label>
       </div>
       <div class="row"><button class="btn sm" id="tr-mode" aria-pressed="false">在地图上刷树</button><button class="btn sm warn" id="tr-clear">清除全部树</button></div>
@@ -372,7 +373,7 @@ const TAU = Math.PI * 2, D2R = Math.PI / 180;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const hex2rgb = h => { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
 const fmtB = n => n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(1) + ' KB' : (n / 1048576).toFixed(2) + ' MB';
-const SHAPES = { box: '方体', gable: '双坡顶', pyr: '四棱锥', cyl: '圆柱', cone: '圆锥' };
+const SHAPES = { box: '方体', gable: '双坡顶', pyr: '四棱锥', cyl: '圆柱', cone: '圆锥', ball: '椭球' };
 /* ───────── 资产：矢量配方 ───────── */
 const P = (s, x, z, y, w, d, h, c, o) => Object.assign({ s, x, z, y, w, d, h, c }, o || {});
 const treeAt = (x, z) => [P('cyl', x, z, 0.3, 0.8, 0.8, 2.6, '#7A5B40'), P('cone', x, z, 2.2, 5, 5, 5.5, '#3F8F56')];
@@ -384,11 +385,23 @@ const BUILTIN = [
   { id: 'factory', name: '工厂', parts: [P('box', 0, 0, 0, 30, 18, 9, '#B9B2A6'), P('gable', -10, 0, 9, 18, 10, 3, '#7D8790', { r: 90 }), P('gable', 0, 0, 9, 18, 10, 3, '#7D8790', { r: 90 }), P('gable', 10, 0, 9, 18, 10, 3, '#7D8790', { r: 90 }), P('cyl', 12, -6, 9, 3, 3, 17, '#8E5B4A')] },
   { id: 'watertower', name: '水塔', parts: [P('cyl', 0, 0, 0, 2.4, 2.4, 13, '#8D979E'), P('cyl', 0, 0, 13, 9, 9, 5, '#C4D3DC'), P('cone', 0, 0, 18, 9.6, 9.6, 2.5, '#6E8FA3')] },
   { id: 'tree', name: '行道树', parts: [P('cyl', 0, 0, 0, 0.9, 0.9, 3, '#7A5B40'), P('cone', 0, 0, 2.2, 5.5, 5.5, 5, '#3F8F56'), P('cone', 0, 0, 5, 4, 4, 4.5, '#4FA568')] },
-  // 摆件：不产生人流，可以摆在任何地方；sign 的会贴着路边并面向来车，gantry 的会横跨在路上。label 是牌面上写字的位置（高度、宽、高）
-  { id: 'sign_name', name: '路名牌', prop: 1, sign: 1, label: { y: 2.95, w: 2.3, h: 0.6, def: '中山路' }, parts: [P('cyl', 0, 0, 0, 0.16, 0.16, 3.4, '#8D979E'), P('box', 0, 0.05, 2.6, 2.5, 0.1, 0.7, '#1F5FA8')] },
-  { id: 'sign_limit', name: '限速牌', prop: 1, sign: 1, label: { y: 2.75, w: 0.8, h: 0.75, def: '60', col: '#C8402E' }, parts: [P('cyl', 0, 0, 0, 0.14, 0.14, 3.2, '#8D979E'), P('box', 0, 0.05, 2.3, 0.95, 0.08, 0.95, '#C8402E'), P('box', 0, 0.09, 2.38, 0.79, 0.06, 0.79, '#F4F6F7')] },
-  { id: 'sign_dir', name: '指路牌', prop: 1, sign: 1, label: { y: 4.5, w: 4.3, h: 1.9, def: '市中心 ↑|机场 →' }, parts: [P('cyl', -1.7, 0, 0, 0.2, 0.2, 5.5, '#8D979E'), P('cyl', 1.7, 0, 0, 0.2, 0.2, 5.5, '#8D979E'), P('box', 0, 0.08, 3.4, 4.7, 0.14, 2.2, '#1E7A46'), P('box', 0, 0.12, 3.5, 4.5, 0.1, 2.0, '#23915A')] },
-  { id: 'sign_gantry', name: '门架指路牌', prop: 1, sign: 1, gantry: 1, label: { y: 8.5, w: 7.8, h: 2.3, def: '人民广场 ↑|高速入口 ↗' }, parts: [P('box', -7, 0, 0, 0.5, 0.5, 7.4, '#8D979E'), P('box', 7, 0, 0, 0.5, 0.5, 7.4, '#8D979E'), P('box', 0, 0, 7, 14.5, 0.45, 0.45, '#8D979E'), P('box', 0, 0.3, 7.2, 8.2, 0.16, 2.6, '#1E7A46')] },
+  // 树：tree 指向 trees.js 里的树种，实景里画的是那个树种的模型（会随风摆动）；这里的 parts 只用于平面图和图标
+  ...[['t_oak', '橡树', 'oak', 15, '#4E8F4A', 9], ['t_maple', '枫树', 'maple', 13, '#C8642E', 8], ['t_birch', '白桦', 'birch', 15, '#8DBB5E', 5], ['t_spruce', '云杉', 'spruce', 20, '#2E6A48', 7], ['t_pine', '松树', 'pine', 17, '#356F4A', 7],
+    ['t_willow', '柳树', 'willow', 10, '#9BBF4E', 8], ['t_ginkgo', '银杏', 'ginkgo', 14, '#D9B93A', 6], ['t_poplar', '杨树', 'poplar', 20, '#4F9150', 4], ['t_gum', '桉树', 'gum', 24, '#7E9A72', 7], ['t_shrub', '灌木', 'shrub', 2.2, '#5B9A52', 3]]
+    .map(([id, name, tree, th, c, w]) => ({ id, name, tree, th, prop: 1, parts: [P('cyl', 0, 0, 0, Math.min(0.9, w / 6), Math.min(0.9, w / 6), th * 0.4, '#7A5B40'), P('ball', 0, 0, th * 0.3, w, w, th * 0.7, c)] })),
+  // 摆件：不产生人流，可以摆在任何地方；sign 的会贴着路边并面向来车，gantry 的会横跨在路上。
+  // 路牌有两套样式（variants）：us 美式，cn 中国高速式；label 是牌面上写字的位置（高度、宽、高）、默认文字和字色
+  ...(() => { const PL = '#8D979E', WH = '#F4F6F7', US = '#006B54', CN = '#0B7A45', BK = '#1B1F24', pole = (x, h, r = 0.16) => P('cyl', x, 0, 0, r, r, h, PL);
+    const board = (y, w, h, col, z = 0.08) => [P('box', 0, z, y - 0.1, w + 0.2, 0.1, h + 0.2, WH), P('box', 0, z + 0.05, y, w, 0.1, h, col)];                  // 白边 + 底色
+    const mk = (id, name, extra, us, cn) => ({ id, name, prop: 1, sign: 1, ...extra, parts: us.parts, label: us.label, variants: { us, cn } });
+    return [
+      mk('sign_name', '路名牌', {}, { parts: [pole(0, 3.4), ...board(2.75, 2.7, 0.5, US)], label: { y: 3.0, w: 2.55, h: 0.42, def: 'MAIN ST' } }, { parts: [pole(0, 3.4), ...board(2.6, 2.5, 0.7, '#1F5FA8')], label: { y: 2.95, w: 2.3, h: 0.58, def: '中山路|ZHONGSHAN RD' } }),
+      mk('sign_limit', '限速牌', {}, { parts: [pole(0, 3.3, 0.14), P('box', 0, 0.05, 2.0, 0.98, 0.08, 1.28, BK), P('box', 0, 0.09, 2.06, 0.86, 0.06, 1.16, WH)], label: { y: 2.64, w: 0.8, h: 1.05, def: 'SPEED|LIMIT|55', col: BK } },
+        { parts: [pole(0, 3.3, 0.14), P('ball', 0, 0.06, 2.2, 1.05, 0.1, 1.05, '#C8402E'), P('ball', 0, 0.1, 2.31, 0.83, 0.08, 0.83, WH)], label: { y: 2.72, w: 0.7, h: 0.62, def: '60', col: BK } }),
+      mk('sign_dir', '指路牌', {}, { parts: [pole(-1.8, 5.6, 0.2), pole(1.8, 5.6, 0.2), ...board(3.4, 4.9, 2.2, US)], label: { y: 4.5, w: 4.6, h: 1.9, def: 'Downtown ↑|Airport →' } }, { parts: [pole(-1.8, 5.6, 0.2), pole(1.8, 5.6, 0.2), ...board(3.4, 4.9, 2.2, CN)], label: { y: 4.5, w: 4.6, h: 1.9, def: '市中心 ↑|机场 →|DOWNTOWN  AIRPORT' } }),
+      mk('sign_gantry', '门架指路牌', { gantry: 1 }, { parts: [P('box', -7, 0, 0, 0.5, 0.5, 7.4, PL), P('box', 7, 0, 0, 0.5, 0.5, 7.4, PL), P('box', 0, 0, 7, 14.5, 0.45, 0.45, PL), ...board(7.2, 8.4, 2.6, US, 0.3)], label: { y: 8.5, w: 8.0, h: 2.3, def: 'EXIT 12|Main St  ↗' } },
+        { parts: [P('box', -7, 0, 0, 0.5, 0.5, 7.4, PL), P('box', 7, 0, 0, 0.5, 0.5, 7.4, PL), P('box', 0, 0, 7, 14.5, 0.45, 0.45, PL), ...board(7.2, 8.4, 2.6, CN, 0.3)], label: { y: 8.5, w: 8.0, h: 2.3, def: '人民广场 ↑|高速入口 ↗|PEOPLE\'S SQ  EXPWY' } }),
+    ]; })(),
   { id: 'cone', name: '交通锥', prop: 1, parts: [P('box', 0, 0, 0, 0.5, 0.5, 0.06, '#2B2F36'), P('cone', 0, 0, 0.06, 0.4, 0.4, 0.72, '#F07A1A')] },
   { id: 'bench', name: '长椅', prop: 1, parts: [P('box', 0, 0, 0.35, 1.8, 0.5, 0.1, '#9A6B43'), P('box', 0, -0.22, 0.45, 1.8, 0.08, 0.5, '#9A6B43'), P('box', -0.75, 0, 0, 0.1, 0.45, 0.35, '#4A4F56'), P('box', 0.75, 0, 0, 0.1, 0.45, 0.35, '#4A4F56')] },
   { id: 'park', name: '小公园', parts: [P('box', 0, 0, 0, 26, 26, 0.3, '#8DBB79'), P('box', -2, -2, 0.3, 1.4, 24, 0.1, '#D9CFB8', { r: 35 }), P('cyl', 6, 5, 0.3, 10, 7, 0.15, '#6FB2D6'), ...treeAt(-9, -8), ...treeAt(-8, 7), ...treeAt(8, -8)] },
@@ -421,6 +434,8 @@ function fp(a) {
   f = { w: mx * 2, d: mz * 2, h, sorted: a.parts.slice().sort((p, q) => (p.y + p.h) - (q.y + q.h)) };
   fpCache.set(a, f); return f;
 }
+const partsOf = (as, b) => as.variants ? (as.variants[b && b.st] || as.variants.us).parts : as.parts;     // 路牌按这块牌子选的样式取模型和牌面
+const labelOf = (as, b) => as.variants ? (as.variants[b && b.st] || as.variants.us).label : as.label;
 /* ───────── 城市状态（两个视图共用的唯一一份） ───────── */
 const S = { assets: {}, roads: [], blds: [], env: { water: null, lakes: false, rivers: false, thr: 300, src: [], canals: [] } };
 const GN = 1024, VN = GN + 1, HALF = 9000, CELL = HALF * 2 / GN;  // 地形：18×18 km，1025×1025 高度格，每格约 17.6 m
@@ -438,7 +453,7 @@ function restore(d) {
   const pt = p => Array.isArray(p) && isFinite(p[0]) && isFinite(p[1]);
   S.roads = (d.roads || []).filter(r => r && pt(r.a) && pt(r.b) && pt(r.c)).map(r => ({ a: [+r.a[0], +r.a[1]], c: [+r.c[0], +r.c[1]], b: [+r.b[0], +r.b[1]], w: r.w >= 12 ? 14 : 8, ln: r.ln, m: r.m === 1 || r.m === 2 ? r.m : 0,
     h: Array.isArray(r.h) && r.h.length >= 2 && r.h.length <= 64 && r.h.every(Number.isFinite) ? r.h.map(Number) : undefined }));
-  S.blds = (d.blds || []).filter(b => b && S.assets[b.a] && isFinite(b.x) && isFinite(b.z)).map(b => ({ a: b.a, x: +b.x, z: +b.z, r: +b.r || 0, ...(b.f && typeof b.f === 'object' ? { f: b.f } : {}), ...(typeof b.t === 'string' ? { t: b.t.slice(0, 60) } : {}), ...(b.sx > 0 ? { sx: +b.sx } : {}) }));
+  S.blds = (d.blds || []).filter(b => b && S.assets[b.a] && isFinite(b.x) && isFinite(b.z)).map(b => ({ a: b.a, x: +b.x, z: +b.z, r: +b.r || 0, ...(b.f && typeof b.f === 'object' ? { f: b.f } : {}), ...(typeof b.t === 'string' ? { t: b.t.slice(0, 60) } : {}), ...(b.sx > 0 ? { sx: +b.sx } : {}), ...(b.st === 'us' || b.st === 'cn' ? { st: b.st } : {}) }));
   S.roads.forEach(ensureLanes);
   if (!S.assets[ui.asset]) ui.asset = 'house';
   const e = d.env || {}; S.env = { water: Number.isFinite(e.water) ? e.water : null, lakes: e.lakes != null ? !!e.lakes : !!e.rivers, rivers: !!e.rivers, thr: clamp(+e.thr || 300, 5, 50000),
@@ -667,7 +682,7 @@ function snapToRoad(b) {
 }
 function poseAt(w) {
   const b = { a: ui.asset, x: w[0], z: w[1], r: ui.rot }, as = S.assets[ui.asset];
-  if (as.prop) { if (as.label) b.t = as.label.def; if (ui.snap && as.sign) snapSign(b, as); } else if (ui.snap) snapToRoad(b);
+  if (as.prop) { if (as.variants) b.st = ui.signStyle || 'us'; if (as.label) b.t = labelOf(as, b).def; if (ui.snap && as.sign) snapSign(b, as); } else if (ui.snap) snapToRoad(b);
   return b;
 }
 function snapSign(b, as) {                                                       // 路牌贴路：普通牌子立在路边、面向这一侧的来车；门架横跨整条路，宽度跟着路宽
@@ -815,7 +830,7 @@ const LANE_SYM = { F: '↑', B: '↓', S: '急', X: '✕', M: '▮' };
 function inspSync() {                                                            // 每帧比一下“选中了什么”，变了才重画面板
   const el = $('#insp'), s = ui.tool === 'select' && !shop.open ? ui.sel : null, r = s && s.k === 'road' ? S.roads[s.i] : null, b = s && s.k === 'bld' ? S.blds[s.i] : null;
   const jn = ui.tool === 'junction' && ui.node && !shop.open ? J.nodes.find(n => nodeKeyOf(n) === ui.node) : null;
-  const key = jn ? 'j' + ui.node + jn.arms.length + (ui.jl || '') + JSON.stringify((S.env.jx || {})[ui.node] || 0) : r ? 'r' + s.i + r.ln + (r.m | 0) : b ? 'b' + s.i + b.a + JSON.stringify(b.f || 0) + sim.on + (S.assets[b.a].prop ? 'p' : '') : '';
+  const key = jn ? 'j' + ui.node + jn.arms.length + (ui.jl || '') + JSON.stringify((S.env.jx || {})[ui.node] || 0) : r ? 'r' + s.i + r.ln + (r.m | 0) : b ? 'b' + s.i + b.a + JSON.stringify(b.f || 0) + sim.on + (S.assets[b.a].prop ? 'p' + (b.st || '') : '') : '';
   if (key === inspKey) { if (b && sim.on) inspLive(s.i); if (jn) jxLive(); return; }
   inspKey = key; el.hidden = !key; if (!key) return;
   if (jn) return jxRender(jn);
@@ -833,7 +848,7 @@ function inspSync() {                                                           
       <div class="note">切开后两条路并排、车道原位不动；把其中一条的远端拖走并调弯，就是匝道。车道首尾对齐的地方车会直接开过去，不需要路口。</div>`;
   } else if (S.assets[b.a].prop) {
     const as = S.assets[b.a];
-    el.innerHTML = `<h3>${as.name} · 摆件</h3>` + (as.label ? `<label>牌面文字<input type="text" data-act="pt" maxlength="60" value="${(b.t || '').replace(/"/g, '&quot;')}"></label><div class="note">用竖线 | 换行，最多 4 行。可以直接打箭头：↑ ↓ ← → ↖ ↗。</div>` : '') + '<div class="note">摆件不产生人流。拖动可移动，R 旋转。勾着“建筑贴路”时，路牌会立在路边并面向来车，门架会横跨整条路。</div>';
+    el.innerHTML = `<h3>${as.name} · 摆件</h3>` + (as.variants ? `<label>样式 <select data-act="pst"><option value="us" ${b.st !== 'cn' ? 'selected' : ''}>美式</option><option value="cn" ${b.st === 'cn' ? 'selected' : ''}>中国高速式</option></select></label>` : '') + (as.label ? `<label>牌面文字<input type="text" data-act="pt" maxlength="60" value="${(b.t || '').replace(/"/g, '&quot;')}"></label><div class="note">用竖线 | 换行，最多 4 行。可以直接打箭头：↑ ↓ ← → ↖ ↗。</div>` : '') + '<div class="note">摆件不产生人流。拖动可移动，R 旋转。勾着“建筑贴路”时，路牌会立在路边并面向来车，门架会横跨整条路。</div>';
   } else {
     const f = flowOf(b), own = b.f || {};
     el.innerHTML = `<h3>${S.assets[b.a].name} · 人流</h3>
@@ -875,6 +890,7 @@ $('#insp').addEventListener('change', e => {
     else if (act === 'preset' && e.target.value) { pushUndo(); setLanes(r, e.target.value); changed(); }
   } else {
     const b = S.blds[s.i]; if (!b) return; if (act === 'pt') { pushUndo(); b.t = e.target.value.slice(0, 60); changed(); return; }
+    if (act === 'pst') { pushUndo(); const as = S.assets[b.a], old = labelOf(as, b).def; b.st = e.target.value; ui.signStyle = b.st; if (!b.t || b.t === old) b.t = labelOf(as, b).def; changed(); return; }   // 换样式；牌面还是默认字的话一起换成新样式的默认字
     const f = flowOf(b), nums = v => { const a = String(v).split(/[,，\s]+/).map(Number).filter(Number.isFinite).map(x => clamp(x, 0, 1)); while (a.length < 24) a.push(a.length ? a[a.length - 1] : 0); return a.slice(0, 24); };
     pushUndo(); b.f = { p: b.f && b.f.p || '', i: f.i, o: f.o, ...(b.f || {}) };
     if (act === 'fp') { if (e.target.value) b.f.p = e.target.value; else delete b.f; }
@@ -953,8 +969,13 @@ function emitPart(m, p, tf, colOverride) {
   const cr = Math.cos((p.r || 0) * D2R), sr = Math.sin((p.r || 0) * D2R);
   const L = (lx, ly, lz) => tf(p.x + lx * cr - lz * sr, p.y + ly, p.z + lx * sr + lz * cr);
   const col = colOverride || hex2rgb(p.c), mat = p.mat || (p.win ? 128 : 255), hw = p.w / 2, hd = p.d / 2, h = p.h;
-  const ctr = L(0, p.s === 'box' || p.s === 'cyl' ? h / 2 : h / 4, 0);
+  const ctr = L(0, p.s === 'box' || p.s === 'cyl' || p.s === 'ball' ? h / 2 : h / 4, 0);
   const T = (a, b, c) => tri(m, a, b, c, col, mat, ctr), Q = (a, b, c, d) => { T(a, b, c); T(a, c, d); };
+  if (p.s === 'ball') {                                                          // 椭球：上下两个尖顶加三圈，8 条棱
+    const N = 8, rings = [[0, 0], [0.16, 0.72], [0.5, 1], [0.84, 0.72], [1, 0]], pt = (k, i) => { const a = i / N * TAU; return L(Math.cos(a) * hw * rings[k][1], h * rings[k][0], Math.sin(a) * hd * rings[k][1]); };
+    for (let k = 0; k < 4; k++) for (let i = 0; i < N; i++) { const a = pt(k, i), b = pt(k, i + 1), c = pt(k + 1, i + 1), d = pt(k + 1, i); if (k > 0) T(a, b, c); if (k < 3) T(a, c, d); }
+    return;
+  }
   if (p.s === 'cyl' || p.s === 'cone') {
     const N = 12, top = L(0, h, 0);
     for (let i = 0; i < N; i++) {
@@ -980,7 +1001,7 @@ function baseY(b, asset) {                                                      
 }
 function emitAsset(m, asset, b, col) {
   const c = Math.cos(b.r), s = Math.sin(b.r), y0 = baseY(b, asset), sx = b.sx || 1, tf = (x, y, z) => [b.x + x * sx * c - z * s, y0 + y, b.z + x * sx * s + z * c];
-  for (const p of asset.parts) emitPart(m, p, tf, col);
+  for (const p of partsOf(asset, b)) emitPart(m, p, tf, col);
 }
 function ribbon(m, pts, hw, y, col, mat, yf) {
   for (let i = 0; i < pts.length - 1; i++) {
@@ -1364,7 +1385,7 @@ function buildTerrain() {
       let nx = (RH[o - (i > 0 ? 1 : 0)] - RH[o + (i < GN ? 1 : 0)]) / (2 * CELL), nz = (RH[o - (j > 0 ? VN : 0)] - RH[o + (j < GN ? VN : 0)]) / (2 * CELL), ny = 1;
       const l = Math.hypot(nx, ny, nz); nx /= l; ny /= l; nz /= l;
       if (h < cmin) cmin = h; if (h > cmax) cmax = h;
-      const fr = TR ? TR[o] / 255 : 0, rk = clamp((1 - ny - 0.06) / 0.14, 0, 1) * clamp(h / 20, 0, 1) * (1 - 0.7 * fr), sn = clamp((h - snow0) / (snow0 * 0.3), 0, 1) * (1 - 0.6 * rk), sd = clamp(-h / 4, 0, 1), dk = 1 - 0.22 * clamp(h / 150, 0, 1), w = wet[o] / 255;
+      const fr = TR ? (TR[o] & 31) / 31 : 0, rk = clamp((1 - ny - 0.06) / 0.14, 0, 1) * clamp(h / 20, 0, 1) * (1 - 0.7 * fr), sn = clamp((h - snow0) / (snow0 * 0.3), 0, 1) * (1 - 0.6 * rk), sd = clamp(-h / 4, 0, 1), dk = 1 - 0.22 * clamp(h / 150, 0, 1), w = wet[o] / 255;
       for (let q = 0; q < 3; q++) { let v = cg[q] * dk; v += (ck[q] - v) * rk; v += (cs[q] - v) * sn; v += (cd[q] - v) * sd; col[q] = v * (1 - FT[q] * fr); }          // 有树的地方压成林地的深绿
       pos[0] = i * CELL - HALF; pos[1] = h; pos[2] = j * CELL - HALF; m.v(pos, nx, ny, nz, col, wet[o] * 0.3);          // 湿度放进 alpha，岸线由着色器按等值线画，不是一格一格的
       if (!(i & 1) && !(j & 1)) {                                              // 平面图底图取隔点，带一点山影
@@ -1390,15 +1411,46 @@ function buildSkirt() {
   for (let k = 0; k < GN; k++) { wall(P(k, 0), P(k + 1, 0), B(k + 1, 0), B(k, 0)); wall(P(k, GN), P(k + 1, GN), B(k + 1, GN), B(k, GN)); wall(P(0, k), P(0, k + 1), B(0, k + 1), B(0, k)); wall(P(GN, k), P(GN, k + 1), B(GN, k + 1), B(GN, k)); }
   terr.skirtN = m.n; if (gl) gl.bufferSubData(gl.ARRAY_BUFFER, CN * CN * CV * 20, m.u.subarray(0, m.n * 20));
 }
-// ── 树：只存一张“密度图”（每格 1 字节）。远处靠地形染色表现成林，镜头附近才按密度现生成树的模型
-const treeM = new Mesh(1024); let trSt = null;
+// ── 树：地上只存一张图（每格 1 字节：高 3 位是“哪种林子”，低 5 位是密度）。远处靠地形染色表现成林；
+//    镜头附近才生成一棵棵树，而且是实例化的：每个树种只有一份模型，每棵树只占 20 字节（位置、朝向、高度、叶色）。
+//    模型都是按“树高 = 1”做的低面数矢量体：树干是棱台，树冠是若干椭球或圆锥。叶子在模型里是灰白的，颜色由每棵树自己带。
 const hsh = (a, b, c) => { let n = Math.imul(a, 374761393) + Math.imul(b, 668265263) + Math.imul(c, 2246822519) | 0; n = Math.imul(n ^ n >>> 13, 1274126177); return ((n ^ n >>> 16) >>> 0) / 4294967296; };
+const BARK = [112, 86, 62], LEAF = 250;
+function tTrunk(m, r0, r1, h, col, n = 5, x = 0, z = 0) { const c = [x, h / 2, z]; for (let i = 0; i < n; i++) { const a = i / n * TAU, b = (i + 1) / n * TAU, p = (ang, r, y) => [x + Math.cos(ang) * r, y, z + Math.sin(ang) * r]; tri(m, p(a, r0, 0), p(b, r0, 0), p(b, r1, h), col, 255, c); tri(m, p(a, r0, 0), p(b, r1, h), p(a, r1, h), col, 255, c); } }
+function tCone(m, y0, y1, r, n, sh) { const col = [235 * sh, 235 * sh, 235 * sh], c = [0, y0 + (y1 - y0) * 0.3, 0], top = [0, y1, 0]; for (let i = 0; i < n; i++) { const a = i / n * TAU, b = (i + 1) / n * TAU; tri(m, [Math.cos(a) * r, y0, Math.sin(a) * r], [Math.cos(b) * r, y0, Math.sin(b) * r], top, col, LEAF, c); } }
+function tBall(m, cx, cy, cz, rx, ry, rz, sh, n = 5, rings = [[-1, 0], [-0.45, 0.9], [0.45, 0.9], [1, 0]]) {
+  const col = [235 * sh, 235 * sh, 235 * sh], c = [cx, cy, cz], pt = (k, i) => { const a = (i + k * 0.5) / n * TAU; return [cx + Math.cos(a) * rx * rings[k][1], cy + ry * rings[k][0], cz + Math.sin(a) * rz * rings[k][1]]; };
+  for (let k = 0; k < rings.length - 1; k++) for (let i = 0; i < n; i++) { const a = pt(k, i), b = pt(k, i + 1), d = pt(k + 1, i), e = pt(k + 1, i + 1); if (k > 0) tri(m, a, b, e, col, LEAF, c); if (k < rings.length - 2) tri(m, a, e, d, col, LEAF, c); }
+}
+const LOWB = [[-1, 0], [0, 1], [1, 0]];                                          // 远处用的简化椭球：一圈加两个尖
+const TREE_SP = {
+  spruce: { name: '云杉', h: [14, 26], pal: [[38, 84, 58], [46, 98, 64], [30, 72, 52]], full: m => { tTrunk(m, 0.02, 0.012, 0.3, BARK); tCone(m, 0.14, 0.52, 0.2, 6, 0.9); tCone(m, 0.36, 0.76, 0.155, 6, 0.96); tCone(m, 0.6, 1, 0.1, 6, 1); }, low: m => tCone(m, 0.1, 1, 0.19, 4, 0.95) },
+  pine: { name: '松树', h: [12, 22], pal: [[52, 104, 70], [44, 92, 62], [64, 112, 72]], full: m => { tTrunk(m, 0.024, 0.014, 0.8, [128, 84, 60]); tBall(m, 0, 0.62, 0, 0.21, 0.065, 0.21, 0.9); tBall(m, 0.06, 0.78, 0.03, 0.17, 0.06, 0.17, 0.96); tBall(m, -0.03, 0.93, 0, 0.12, 0.06, 0.12, 1); }, low: m => { tTrunk(m, 0.022, 0.014, 0.6, [128, 84, 60], 3); tBall(m, 0, 0.78, 0, 0.19, 0.2, 0.19, 0.95, 4, LOWB); } },
+  oak: { name: '橡树', h: [10, 18], pal: [[70, 124, 62], [84, 138, 66], [58, 108, 56]], full: m => { tTrunk(m, 0.036, 0.026, 0.42, BARK); tBall(m, 0, 0.62, 0, 0.3, 0.23, 0.3, 0.92); tBall(m, 0.17, 0.55, 0.08, 0.2, 0.16, 0.2, 0.86); tBall(m, -0.15, 0.58, -0.1, 0.2, 0.17, 0.2, 0.9); tBall(m, 0.02, 0.83, 0, 0.2, 0.16, 0.2, 1); }, low: m => { tTrunk(m, 0.034, 0.026, 0.4, BARK, 3); tBall(m, 0, 0.66, 0, 0.32, 0.33, 0.32, 0.94, 4, LOWB); } },
+  maple: { name: '枫树', h: [9, 16], pal: [[92, 142, 62], [204, 96, 44], [226, 150, 46], [176, 60, 44], [110, 150, 64]], full: m => { tTrunk(m, 0.03, 0.022, 0.38, BARK); tBall(m, 0, 0.62, 0, 0.26, 0.26, 0.26, 0.92); tBall(m, 0.1, 0.82, 0.05, 0.17, 0.17, 0.17, 1); tBall(m, -0.11, 0.5, -0.06, 0.17, 0.15, 0.17, 0.86); }, low: m => { tTrunk(m, 0.03, 0.022, 0.36, BARK, 3); tBall(m, 0, 0.66, 0, 0.27, 0.33, 0.27, 0.94, 4, LOWB); } },
+  birch: { name: '白桦', h: [10, 18], pal: [[138, 180, 88], [156, 190, 84], [196, 190, 70]], full: m => { tTrunk(m, 0.015, 0.009, 0.62, [226, 226, 216]); tBall(m, 0, 0.72, 0, 0.12, 0.27, 0.12, 0.98); tBall(m, 0.035, 0.5, 0.02, 0.09, 0.13, 0.09, 0.88); }, low: m => { tTrunk(m, 0.014, 0.009, 0.5, [226, 226, 216], 3); tBall(m, 0, 0.7, 0, 0.12, 0.29, 0.12, 0.95, 4, LOWB); } },
+  poplar: { name: '杨树', h: [14, 24], pal: [[78, 140, 76], [66, 126, 70]], full: m => { tTrunk(m, 0.018, 0.012, 0.25, BARK); tBall(m, 0, 0.6, 0, 0.085, 0.4, 0.085, 0.95, 6); }, low: m => tBall(m, 0, 0.58, 0, 0.085, 0.42, 0.085, 0.95, 4, LOWB) },
+  willow: { name: '柳树', h: [7, 12], pal: [[150, 186, 76], [134, 174, 72]], full: m => { tTrunk(m, 0.034, 0.024, 0.5, BARK); tBall(m, 0, 0.72, 0, 0.27, 0.2, 0.27, 1, 6);
+      const n = 7, c = [0, 0.45, 0], col = [205, 205, 205]; for (let i = 0; i < n; i++) { const a = i / n * TAU, b = (i + 1) / n * TAU, p = (ang, r, y) => [Math.cos(ang) * r, y, Math.sin(ang) * r]; tri(m, p(a, 0.26, 0.68), p(b, 0.26, 0.68), p(b, 0.31, 0.26), col, LEAF, c); tri(m, p(a, 0.26, 0.68), p(b, 0.31, 0.26), p(a, 0.31, 0.26), col, LEAF, c); } },        // 垂下来的枝条是一圈帘子
+    low: m => { tTrunk(m, 0.03, 0.024, 0.3, BARK, 3); tBall(m, 0, 0.6, 0, 0.3, 0.36, 0.3, 0.94, 4, LOWB); } },
+  ginkgo: { name: '银杏', h: [10, 18], pal: [[122, 164, 70], [222, 186, 52], [232, 200, 70], [140, 176, 74]], full: m => { tTrunk(m, 0.026, 0.018, 0.4, BARK); tBall(m, 0, 0.62, 0, 0.2, 0.3, 0.2, 0.94, 6); tBall(m, 0, 0.87, 0, 0.12, 0.13, 0.12, 1); }, low: m => { tTrunk(m, 0.024, 0.018, 0.36, BARK, 3); tBall(m, 0, 0.66, 0, 0.2, 0.34, 0.2, 0.95, 4, LOWB); } },
+  gum: { name: '桉树', h: [16, 30], pal: [[122, 146, 112], [108, 134, 100], [136, 150, 104]], full: m => { tTrunk(m, 0.02, 0.012, 0.8, [214, 205, 190]); tBall(m, 0, 0.84, 0, 0.17, 0.1, 0.17, 1); tBall(m, 0.15, 0.71, 0.05, 0.12, 0.075, 0.12, 0.9); tBall(m, -0.13, 0.76, -0.06, 0.12, 0.075, 0.12, 0.94); }, low: m => { tTrunk(m, 0.018, 0.012, 0.74, [214, 205, 190], 3); tBall(m, 0, 0.82, 0, 0.19, 0.14, 0.19, 0.95, 4, LOWB); } },
+  shrub: { name: '灌木', h: [1.4, 3], pal: [[84, 140, 76], [70, 124, 66], [100, 150, 74]], full: m => { tBall(m, 0, 0.5, 0, 0.62, 0.5, 0.62, 0.95, 6); tBall(m, 0.4, 0.38, 0.2, 0.4, 0.36, 0.4, 0.86); }, low: m => tBall(m, 0, 0.5, 0, 0.66, 0.5, 0.66, 0.92, 4, LOWB) },
+};
+const TREE_IDS = Object.keys(TREE_SP);
+const TREE_REG = [['混合', TREE_IDS.filter(k => k !== 'gum')], ['美国东部', ['maple', 'maple', 'oak', 'oak', 'pine', 'birch', 'shrub']], ['中国', ['pine', 'willow', 'ginkgo', 'poplar', 'poplar', 'shrub']], ['俄罗斯', ['spruce', 'spruce', 'birch', 'birch', 'pine']],
+  ['欧洲', ['oak', 'oak', 'spruce', 'poplar', 'maple', 'shrub']], ['澳大利亚', ['gum', 'gum', 'gum', 'shrub']], ['低矮灌木', ['shrub']], ['高大乔木', ['spruce', 'gum', 'poplar', 'pine']]];
+let treeT = null, treeG = [], treeExtra = [], trSt = null; const treeM = { n: 0 };    // treeT 各树种模型的范围；treeG 这一帧要画的分组；treeExtra 资产架里摆的树；treeM.n 当前实例数
+function treeTemplates() {                                                       // 每个树种两份模型：近处的完整版、远处的简化版，全放进一个缓冲
+  const m = new Mesh(4096), T_ = {}; for (const id of TREE_IDS) for (const lod of [0, 1]) { const first = m.n; TREE_SP[id][lod ? 'low' : 'full'](m); T_[id + lod] = [first, m.n - first]; }
+  if (gl) { gl.bindBuffer(gl.ARRAY_BUFFER, bufTr); gl.bufferData(gl.ARRAY_BUFFER, m.u.subarray(0, m.n * 20), gl.STATIC_DRAW); } treeT = T_; treeT.bytes = m.n * 20;
+}
 function paintTrees(w) {
   ensureTH(); if (!TR) TR = new Uint8Array(VN * VN);
-  const r = numIn('tr-rad', 200, 20, 4000), den = numIn('tr-den', 0.7, 0.05, 1) * 255, erase = $('#tr-erase').checked, [i0, i1, j0, j1] = cellBox(w, r);
+  const r = numIn('tr-rad', 200, 20, 4000), den = numIn('tr-den', 0.7, 0.05, 1) * 31, reg = clamp(+$('#tr-reg').value | 0, 0, 7) << 5, erase = $('#tr-erase').checked, [i0, i1, j0, j1] = cellBox(w, r);
   for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
     const d = Math.hypot(i * CELL - HALF - w[0], j * CELL - HALF - w[1]) / r; if (d >= 1) continue;
-    const o = j * VN + i, f = 1 - sst(0.6, 1, d); if (erase) TR[o] *= 1 - f; else if (den * f > TR[o]) TR[o] = den * f;
+    const o = j * VN + i, f = 1 - sst(0.6, 1, d), cur = TR[o] & 31; if (erase) { const v = Math.floor(cur * (1 - f)); TR[o] = v ? (TR[o] & 224) | v : 0; } else { const v = Math.round(den * f); if (v > cur || (v > 0 && f > 0.5)) TR[o] = reg | Math.max(v, cur); }
   }
   terrChanged([i0, i1, j0, j1]);
 }
@@ -1407,27 +1459,30 @@ function treesStale() {
   return trSt.far || Math.abs((c.tx + HALF) / CELL - trSt.ci) > trSt.W / 3 || Math.abs((c.tz + HALF) / CELL - trSt.cj) > trSt.W / 3 || Math.abs(c.dist - trSt.d) > trSt.d * 0.35;
 }
 function buildTrees() {
-  const m = treeM, c = camCity; m.n = 0; treesDirty = false;
-  const W = clamp(Math.round((500 + c.dist * 0.9) / CELL), 30, 150), ci = Math.round((c.tx + HALF) / CELL), cj = Math.round((c.tz + HALF) / CELL);
+  const c = camCity; treesDirty = false; if (!treeT) treeTemplates();
+  const W = clamp(Math.round((500 + c.dist * 0.9) / CELL), 30, 150), ci = Math.round((c.tx + HALF) / CELL), cj = Math.round((c.tz + HALF) / CELL), near = 420 + c.dist * 0.25;
   trSt = { ci, cj, W, d: c.dist, far: c.dist > 2800 };
-  if (TR && TH && !shop.open && !trSt.far) {
-    const k = 1, cols = [[58, 122, 74], [74, 142, 84], [46, 104, 66], [92, 150, 80]].map(q => q.map(v => v * k)), wet = terr.wet; let cnt = 0;
+  const G = {}; let cnt = 0;                                                     // 先按“树种 + 精细度”分组收集，再连续写进实例缓冲，这样每组一次绘制
+  const put = (id, x, y, z, rot, ht, k) => { const sp = TREE_SP[id], col = sp.pal[(k * 97 | 0) % sp.pal.length], v = 0.86 + 0.28 * ((k * 31) % 1), key = id + (Math.hypot(x - c.tx, z - c.tz) < near ? 0 : 1); (G[key] || (G[key] = [])).push(x, y, z, rot, col[0] * v, col[1] * v, col[2] * v, ht); cnt++; };
+  if (!shop.open) for (const b of treeExtra) { const as = S.assets[b.a], k = hsh(Math.round(b.x * 3), Math.round(b.z * 3), 5); put(as.tree, b.x, H(b.x, b.z), b.z, b.r, as.th * (0.88 + 0.24 * k), k); }
+  if (TR && TH && !shop.open && !trSt.far) { const wet = terr.wet;
     out: for (let j = Math.max(0, cj - W); j <= Math.min(GN - 1, cj + W); j++) for (let i = Math.max(0, ci - W); i <= Math.min(GN - 1, ci + W); i++) {
-      const o = j * VN + i, d = TR[o]; if (!d || (wet && wet[o] > 128)) continue;
-      const n = Math.floor(d / 255 * 1.7 + hsh(i, j, 7));
-      for (let q = 0; q < n; q++) {
-        const x = (i + hsh(i, j, q * 4 + 1)) * CELL - HALF, z = (j + hsh(i, j, q * 4 + 2)) * CELL - HALF, y = H(x, z), hh = hsh(i, j, q * 4 + 3), ht = 7 + 8 * hh, rd = ht * 0.26, a0 = hh * 6.28, col = cols[(hh * 97 | 0) & 3];
-        const top = [x, y + ht, z], ctr = [x, y, z], B = a => [x + Math.cos(a0 + a) * rd, y + ht * 0.1, z + Math.sin(a0 + a) * rd];
-        const b0 = B(0), b1 = B(1.571), b2 = B(3.142), b3 = B(4.712);                                                 // 一棵树 = 一个四棱锥，12 个顶点
-        tri(m, b0, b1, top, col, 255, ctr); tri(m, b1, b2, top, col, 255, ctr); tri(m, b2, b3, top, col, 255, ctr); tri(m, b3, b0, top, col, 255, ctr);
-        if (++cnt >= 40000) break out;
-      }
-    }
-  }
-  if (gl) { gl.bindBuffer(gl.ARRAY_BUFFER, bufTr); gl.bufferData(gl.ARRAY_BUFFER, m.u.subarray(0, Math.max(1, m.n) * 20), gl.DYNAMIC_DRAW); }
+      const o = j * VN + i, d = TR[o] & 31; if (!d || (wet && wet[o] > 128)) continue; const set = TREE_REG[TR[o] >> 5][1], n = Math.floor(d / 31 * 1.7 + hsh(i, j, 7));
+      for (let q = 0; q < n; q++) { const x = (i + hsh(i, j, q * 4 + 1)) * CELL - HALF, z = (j + hsh(i, j, q * 4 + 2)) * CELL - HALF, k = hsh(i, j, q * 4 + 3), id = set[(hsh(i, j, q * 4 + 4) * set.length) | 0], sp = TREE_SP[id];
+        put(id, x, H(x, z), z, k * TAU, sp.h[0] + (sp.h[1] - sp.h[0]) * k, k); if (cnt >= 30000) break out; } } }
+  const buf = new ArrayBuffer(Math.max(1, cnt) * 20), Fv = new Float32Array(buf), Uv = new Uint8Array(buf); let at = 0; treeG = [];
+  for (const key in G) { const a = G[key], n = a.length / 8, t = treeT[key]; treeG.push({ first: t[0], count: t[1], i0: at, n });
+    for (let q = 0; q < n; q++, at++) { const s = q * 8, f = at * 5, u = at * 20 + 16; Fv[f] = a[s]; Fv[f + 1] = a[s + 1]; Fv[f + 2] = a[s + 2]; Fv[f + 3] = a[s + 3]; Uv[u] = Math.min(255, a[s + 4]); Uv[u + 1] = Math.min(255, a[s + 5]); Uv[u + 2] = Math.min(255, a[s + 6]); Uv[u + 3] = clamp(Math.round(a[s + 7] / 40 * 255), 1, 255); } }
+  treeM.n = cnt; if (gl) { gl.bindBuffer(gl.ARRAY_BUFFER, bufTi); gl.bufferData(gl.ARRAY_BUFFER, Uv, gl.DYNAMIC_DRAW); }
 }
+function drawTrees(P, uSway) {                                                   // 每组（树种 × 精细度）一次实例化绘制
+  if (!treeG.length) return; gl.useProgram(P); if (uSway) gl.uniform1f(uSway, sim.on ? 1 : 0);
+  gl.bindVertexArray(vaoTr); gl.bindBuffer(gl.ARRAY_BUFFER, bufTi);
+  for (const g of treeG) { gl.vertexAttribPointer(3, 4, gl.FLOAT, false, 20, g.i0 * 20); gl.vertexAttribPointer(4, 4, gl.UNSIGNED_BYTE, true, 20, g.i0 * 20 + 16); gl.drawArraysInstanced(gl.TRIANGLES, g.first, g.count, g.n); }
+}
+$('#tr-reg').innerHTML = TREE_REG.map((r, i) => `<option value="${i}">${r[0]}：${[...new Set(r[1])].map(k => TREE_SP[k].name).join('、')}</option>`).join('');
 const hasWater = () => S.env.water != null || S.env.lakes || S.env.rivers || S.env.src.length > 0 || S.env.canals.some(k => k.wet);
-const terrGpu = () => (CN * CN * CV + SKN) * 20 + (LODN[0] + LODN[1] + LODN[2]) * 2 + treeM.n * 20;
+const terrGpu = () => (CN * CN * CV + SKN) * 20 + (LODN[0] + LODN[1] + LODN[2]) * 2 + treeM.n * 20 + (treeT ? treeT.bytes : 0);
 const terrRam = () => TH ? TH.byteLength * 2 + VN * VN * (TR ? 2 : 1) + RV * RV * 8 : 0;      // 高度 ×2、湿度、树密度、平面图底图
 function updateTerrRead() {
   if ($('#terra').hidden) return;
@@ -1805,7 +1860,7 @@ const heatCol = c => { const t = clamp((c - 0.15) / 0.75, 0, 1); return [Math.ro
 const c3 = $('#c3'), c2 = $('#c2'), g2 = c2.getContext('2d');
 const gl = c3.getContext('webgl2', { antialias: true, alpha: false, powerPreference: 'low-power' });
 const stat = new Mesh(4096), dyn = new Mesh(512);
-let prog, progI, UI = {}, vaoI, bufI, U = {}, skyProg, SU = {}, vaoSky, vaoS, vaoD, vaoT, vaoTr, bufS, bufD, bufT, bufTr;
+let prog, progI, UI = {}, progT, UT = {}, bufTi, vaoI, bufI, U = {}, skyProg, SU = {}, vaoSky, vaoS, vaoD, vaoT, vaoTr, bufS, bufD, bufT, bufTr;
 const VS = `#version 300 es
 layout(location=0) in vec3 aP; layout(location=1) in vec3 aN; layout(location=2) in vec4 aC;
 uniform mat4 uVP; out vec3 vP; out vec3 vN; out vec4 vC;
@@ -1939,6 +1994,20 @@ void main(){                                      // 人和车：一个单位盒
   vP=vec3(q.x*c-q.z*s,q.y,q.x*s+q.z*c)+aI.xyz; vN=vec3(aN.x*c-aN.z*s,aN.y,aN.x*s+aN.z*c); vC=vec4(aK.rgb,1.);
   gl_Position=uVP*vec4(vP,1.);
 }`;
+const VS_T = `#version 300 es
+layout(location=0) in vec3 aP; layout(location=1) in vec3 aN; layout(location=2) in vec4 aC; layout(location=3) in vec4 aI; layout(location=4) in vec4 aK;
+uniform mat4 uVP; uniform float uT, uSway; out vec3 vP; out vec3 vN; out vec4 vC;
+void main(){                                      // 树：模型按“树高 = 1”做，实例给出位置、朝向、树高和叶色；模拟开着时树梢随风轻轻摆
+  float hs=aK.a*40., c=cos(aI.w), s=sin(aI.w); vec3 q=aP*hs;
+  vec3 w=vec3(q.x*c-q.z*s,q.y,q.x*s+q.z*c); float ph=aI.x*.05+aI.z*.07;
+  w.xz+=uSway*aP.y*aP.y*hs*.03*vec2(sin(uT*1.3+ph)+.5*sin(uT*2.9+ph*1.7),cos(uT*1.1+ph*1.3)+.4*sin(uT*2.3+ph));
+  vP=w+aI.xyz; vN=vec3(aN.x*c-aN.z*s,aN.y,aN.x*s+aN.z*c);
+  vC=vec4(aC.a<.99 ? aC.rgb*aK.rgb*1.085 : aC.rgb,1.);                         // 叶子（材质值 250）乘上这棵树自己的叶色
+  gl_Position=uVP*vec4(vP,1.);
+}`;
+const SH_VS_T = `#version 300 es
+layout(location=0) in vec3 aP; layout(location=3) in vec4 aI; layout(location=4) in vec4 aK; uniform mat4 uVP;
+void main(){ float hs=aK.a*40., c=cos(aI.w), s=sin(aI.w); vec3 q=aP*hs; gl_Position=uVP*vec4(vec3(q.x*c-q.z*s,q.y,q.x*s+q.z*c)+aI.xyz,1.); }`;
 const SH_VS = `#version 300 es
 layout(location=0) in vec3 aP; uniform mat4 uVP; void main(){ gl_Position=uVP*vec4(aP,1.); }`;
 const SH_FS = `#version 300 es
@@ -1966,9 +2035,9 @@ function shadowPass(sun, c) {                                                   
       const lod = dd < 2600 ? 0 : dd < 6000 ? 1 : 2; gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 20, k * CV * 20);
       gl.drawElements(gl.TRIANGLES, LODN[lod], gl.UNSIGNED_SHORT, (lod === 0 ? 0 : lod === 1 ? LODN[0] : LODN[0] + LODN[1]) * 2);
     }
-    if (treeM.n) { gl.bindVertexArray(vaoTr); gl.drawArrays(gl.TRIANGLES, 0, treeM.n); }
   }
   gl.bindVertexArray(vaoS); gl.drawArrays(gl.TRIANGLES, 0, stat.n);
+  if (treeG.length) { gl.useProgram(sh.progT); gl.uniformMatrix4fv(sh.uVPT, false, LVP); drawTrees(sh.progT, null); }
   gl.disable(gl.POLYGON_OFFSET_FILL); gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   return { LVP, tex: 2 * E / SHSZ };
 }
@@ -1982,6 +2051,9 @@ function initGL() {
   progI = gl.createProgram(); gl.attachShader(progI, sh_(gl.VERTEX_SHADER, VS_I)); gl.attachShader(progI, sh_(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(progI);
   if (!gl.getProgramParameter(progI, gl.LINK_STATUS)) console.error(gl.getProgramInfoLog(progI));
   for (const n of UN) UI[n] = gl.getUniformLocation(progI, n);
+  progT = gl.createProgram(); gl.attachShader(progT, sh_(gl.VERTEX_SHADER, VS_T)); gl.attachShader(progT, sh_(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(progT);
+  if (!gl.getProgramParameter(progT, gl.LINK_STATUS)) console.error(gl.getProgramInfoLog(progT));
+  for (const n of UN) UT[n] = gl.getUniformLocation(progT, n); UT.uSway = gl.getUniformLocation(progT, 'uSway');
   skyProg = gl.createProgram(); gl.attachShader(skyProg, sh_(gl.VERTEX_SHADER, SKY_VS)); gl.attachShader(skyProg, sh_(gl.FRAGMENT_SHADER, SKY_FS)); gl.linkProgram(skyProg);
   if (!gl.getProgramParameter(skyProg, gl.LINK_STATUS)) console.error(gl.getProgramInfoLog(skyProg));
   for (const n of ['uR', 'uUp', 'uF', 'uZen', 'uHor', 'uCloud', 'uEye', 'uSunD', 'uMoonD', 'uPh', 'uSunC', 'uTan', 'uAsp', 'uTc', 'uNight']) SU[n] = gl.getUniformLocation(skyProg, n);
@@ -1996,12 +2068,15 @@ function initGL() {
     gl.bindVertexArray(null);
   }
   sh.prog = gl.createProgram(); gl.attachShader(sh.prog, sh_(gl.VERTEX_SHADER, SH_VS)); gl.attachShader(sh.prog, sh_(gl.FRAGMENT_SHADER, SH_FS)); gl.linkProgram(sh.prog); sh.uVP = gl.getUniformLocation(sh.prog, 'uVP');
+  sh.progT = gl.createProgram(); gl.attachShader(sh.progT, sh_(gl.VERTEX_SHADER, SH_VS_T)); gl.attachShader(sh.progT, sh_(gl.FRAGMENT_SHADER, SH_FS)); gl.linkProgram(sh.progT); sh.uVPT = gl.getUniformLocation(sh.progT, 'uVP');
   sh.tex = gl.createTexture(); sh.fbo = gl.createFramebuffer(); shadowSize(fx.shadow ? SHSZ : 1);
   const mk = () => { const vao = gl.createVertexArray(), buf = gl.createBuffer(); gl.bindVertexArray(vao); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
     gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 20, 0);
     gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 3, gl.BYTE, true, 20, 12);
     gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 4, gl.UNSIGNED_BYTE, true, 20, 16); return [vao, buf]; };
-  [vaoS, bufS] = mk(); [vaoD, bufD] = mk(); [vaoTr, bufTr] = mk(); [vaoT, bufT] = mk();
+  [vaoS, bufS] = mk(); [vaoD, bufD] = mk(); [vaoTr, bufTr] = mk();
+  bufTi = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, bufTi); gl.enableVertexAttribArray(3); gl.vertexAttribPointer(3, 4, gl.FLOAT, false, 20, 0); gl.vertexAttribDivisor(3, 1); gl.enableVertexAttribArray(4); gl.vertexAttribPointer(4, 4, gl.UNSIGNED_BYTE, true, 20, 16); gl.vertexAttribDivisor(4, 1);
+  [vaoT, bufT] = mk();
   const idx = new Uint16Array(LODN[0] + LODN[1] + LODN[2]), cw = CH + 1; let q = 0;   // 三档精度的索引，所有分块共用
   for (const st of [1, 2, 4]) for (let j = 0; j < CH; j += st) for (let i = 0; i < CH; i += st) { const o = j * cw + i; idx[q++] = o; idx[q++] = o + cw * st; idx[q++] = o + st; idx[q++] = o + st; idx[q++] = o + cw * st; idx[q++] = o + cw * st + st; }
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, gl.createBuffer()); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, idx, gl.STATIC_DRAW); gl.bindVertexArray(null);
@@ -2055,7 +2130,7 @@ function buildStatic() {
   const gq = (x0, z0, x1, z1) => { tri(m, [x0, 0, z0], [x1, 0, z0], [x1, 0, z1], gc, 0); tri(m, [x0, 0, z0], [x1, 0, z1], [x0, 0, z1], gc, 0); };
   if (shop.open || !TH) gq(-G, -G, G, G);                                    // 有地形时，底面和四周岩壁归地形那一遍画
   if (shop.open) { emitAsset(m, shop.draft, { x: 0, z: 0, r: 0 }); }
-  else { computeJ(); lampN = 0; for (const r of S.roads) emitRoad(m, r); emitJunctions(m); tunnelHoles(); for (const b of S.blds) emitAsset(m, S.assets[b.a], b); }
+  else { computeJ(); lampN = 0; for (const r of S.roads) emitRoad(m, r); emitJunctions(m); tunnelHoles(); treeExtra = []; for (const b of S.blds) { const as = S.assets[b.a]; if (as.tree) treeExtra.push(b); else emitAsset(m, as, b); } treesDirty = true; }
   if (gl) { gl.bindBuffer(gl.ARRAY_BUFFER, bufS); gl.bufferData(gl.ARRAY_BUFFER, m.u.subarray(0, m.n * 20), gl.STATIC_DRAW); }
 }
 function buildDyn() {
@@ -2116,7 +2191,7 @@ function drawSignText(VP, eye) {
   const cv = $('#c3t'), g = cv.getContext('2d'); if (cv.width !== c3.width || cv.height !== c3.height) { cv.width = c3.width; cv.height = c3.height; } g.clearRect(0, 0, cv.width, cv.height);
   if (shop.open) return; const Wp = cv.width, Hp = cv.height, th = Math.tan(FOV / 2);
   for (const b of S.blds) {
-    const as = S.assets[b.a], lb = as.label; if (!lb || !b.t) continue; const fx_ = -Math.sin(b.r), fz_ = Math.cos(b.r), x = b.x + fx_ * 0.2, z = b.z + fz_ * 0.2, y = baseY(b, as) + lb.y;
+    const as = S.assets[b.a], lb = labelOf(as, b); if (!lb || !b.t) continue; const fx_ = -Math.sin(b.r), fz_ = Math.cos(b.r), x = b.x + fx_ * 0.2, z = b.z + fz_ * 0.2, y = baseY(b, as) + lb.y;
     const cw = VP[3] * x + VP[7] * y + VP[11] * z + VP[15]; if (cw < 2 || cw > 1100) continue;
     const dx = eye[0] - x, dz = eye[2] - z, dl = Math.hypot(dx, dz) || 1, facing = (fx_ * dx + fz_ * dz) / dl; if (facing < 0.15) continue;                    // 从背面或侧面看不到字
     const ppm = Hp / 2 / (th * cw), hpx = lb.h * ppm; if (hpx < 7) continue;
@@ -2164,7 +2239,7 @@ function draw3() {
   gl.uniform1f(U.uAmb, st.amb); gl.uniform1f(U.uNight, st.night); gl.uniform1f(U.uT, (performance.now() / 1000) % 3600);
   gl.uniform1i(U.uTn, shop.open ? 0 : tunSeg.n); gl.uniform4fv(U.uTa, tunSeg.a); gl.uniform4fv(U.uTb, tunSeg.b); gl.uniform1f(U.uFog, Math.max(26000, c.dist * 8));
   gl.uniform1f(U.uAlpha, 1); };
-  if (sim.on && sim.instN) setU(progI, UI); setU(prog, U); gl.disable(gl.BLEND);
+  if (sim.on && sim.instN) setU(progI, UI); if (treeG.length) setU(progT, UT); setU(prog, U); gl.disable(gl.BLEND);
   const selR = ui.sel && ui.sel.k === 'road' ? S.roads[ui.sel.i] : null, xray = !shop.open && ((ui.tool === 'road' && $('#roadLv').value === '2') || (selR && selR.m === 2));
   const drawTerrain = () => {
   if (TH && !shop.open && terr.mesh) {
@@ -2179,11 +2254,11 @@ function draw3() {
       ptr(c * CV * 20); gl.drawElements(gl.TRIANGLES, LODN[lod], gl.UNSIGNED_SHORT, (lod === 0 ? 0 : lod === 1 ? LODN[0] : LODN[0] + LODN[1]) * 2);
     }
     ptr(CN * CN * CV * 20); gl.drawArrays(gl.TRIANGLES, 0, terr.skirtN);
-    if (treeM.n) { gl.bindVertexArray(vaoTr); gl.drawArrays(gl.TRIANGLES, 0, treeM.n); }
   }
   };
   if (!xray) drawTerrain();
   gl.bindVertexArray(vaoS); gl.drawArrays(gl.TRIANGLES, 0, stat.n);
+  if (treeG.length && !shop.open) { drawTrees(progT, UT.uSway); gl.useProgram(prog); }
   if (sim.on && sim.instN && !shop.open) {                                     // 所有人和车：一次实例化绘制
     gl.useProgram(progI); gl.bindVertexArray(vaoI); gl.bindBuffer(gl.ARRAY_BUFFER, bufI); gl.bufferData(gl.ARRAY_BUFFER, new Uint8Array(sim.buf, 0, sim.instN * 20), gl.DYNAMIC_DRAW);
     gl.drawArraysInstanced(gl.TRIANGLES, 0, 36, sim.instN); gl.useProgram(prog);
@@ -2200,7 +2275,7 @@ function drawAssetPlan(g, asset, s) {
   for (const p of fp(asset).sorted) {
     g.save(); g.translate(p.x * s, p.z * s); if (p.r) g.rotate(p.r * D2R);
     const w = p.w * s, d = p.d * s; g.fillStyle = p.c; g.strokeStyle = 'rgba(0,0,0,.3)'; g.lineWidth = 1;
-    if (p.s === 'cyl' || p.s === 'cone') {
+    if (p.s === 'cyl' || p.s === 'cone' || p.s === 'ball') {
       g.beginPath(); g.ellipse(0, 0, w / 2, d / 2, 0, 0, TAU); g.fill(); g.stroke();
       if (p.s === 'cone') { g.fillStyle = 'rgba(255,255,255,.3)'; g.beginPath(); g.ellipse(0, 0, w / 5, d / 5, 0, 0, TAU); g.fill(); }
     } else {
@@ -2263,7 +2338,7 @@ function draw2() {
     g.setLineDash([]); g.lineCap = 'round';
     const drawB = b => { g.save(); g.translate(b.x * s, b.z * s); g.rotate(b.r); if (b.sx) g.scale(b.sx, 1); drawAssetPlan(g, S.assets[b.a], s); g.restore(); };
     for (const b of S.blds) drawB(b);
-    if (s > 1.4) { g.font = '600 11px Barlow Condensed, sans-serif'; g.textAlign = 'center'; for (const b of S.blds) if (b.t && S.assets[b.a].label) { g.fillStyle = T.panel; const tx = b.t.split('|')[0], wd = g.measureText(tx).width + 8; g.fillRect(b.x * s - wd / 2, b.z * s + 6, wd, 14); g.fillStyle = T.ink; g.fillText(tx, b.x * s, b.z * s + 17); } }
+    if (s > 1.4) { g.font = '600 11px Barlow Condensed, sans-serif'; g.textAlign = 'center'; for (const b of S.blds) if (b.t && labelOf(S.assets[b.a], b)) { g.fillStyle = T.panel; const tx = b.t.split('|')[0], wd = g.measureText(tx).width + 8; g.fillRect(b.x * s - wd / 2, b.z * s + 6, wd, 14); g.fillStyle = T.ink; g.fillText(tx, b.x * s, b.z * s + 17); } }
     if (sim.on && sim.net && !sim.dirty) {
       const net = sim.net;
       if (sim.heat) { g.lineCap = 'butt'; g.globalAlpha = 0.5;                 // 拥堵热力：每个行车方向按“车速 ÷ 设计车速”上色，没车的方向不画
@@ -2360,8 +2435,8 @@ function frame() {
     if (k >= 1) fly = null; else req();
   }
   if (terrDirty) buildTerrain();
-  if (!shop.open && treesStale()) buildTrees();
   if (dirtyGeom) { buildStatic(); dirtyGeom = false; updateMeter(); }
+  if (!shop.open && treesStale()) buildTrees();
   simFrame(rdt);
   buildDyn(); draw3(); draw2(); inspSync();
 }
@@ -2569,7 +2644,7 @@ $('#fields').addEventListener('input', e => {
   shopRefresh(true);
 });
 $('#addRow').addEventListener('click', e => {
-  const s = e.target.dataset.add; if (!s) return; const f = fp(shop.draft), top = shop.draft.parts.length ? f.h : 0, roof = s !== 'box' && s !== 'cyl';
+  const s = e.target.dataset.add; if (!s) return; const f = fp(shop.draft), top = shop.draft.parts.length ? f.h : 0, roof = s !== 'box' && s !== 'cyl' && s !== 'ball';
   shop.draft.parts.push(P(s, 0, 0, roof ? top : 0, roof ? Math.min(f.w, 12) : 6, roof ? Math.min(f.d, 12) : 6, roof ? 3 : 6, roof ? '#8A4B3C' : '#C9CFD4'));
   selectPart(shop.draft.parts.length - 1);
 });
@@ -2620,9 +2695,9 @@ $('#aiRand').onclick = () => { loadDraft(randomDraft($('#aiPrompt').value)); $('
 // AI 生成：Claude 只回一份 JSON 配方
 let sample = null, aiCtl = null;
 const AI_RULES = `你是低多边形矢量建筑设计器。按描述设计一栋建筑，只回复一个 JSON 对象，不要其他文字：
-{"name":"简短中文名","parts":[{"s":"box|gable|pyr|cyl|cone","x":0,"z":0,"y":0,"w":10,"d":8,"h":5,"c":"#rrggbb","r":0,"win":true}]}
+{"name":"简短中文名","parts":[{"s":"box|gable|pyr|cyl|cone|ball","x":0,"z":0,"y":0,"w":10,"d":8,"h":5,"c":"#rrggbb","r":0,"win":true}]}
 规则：单位是米。x 向右，z 向前（建筑正面朝 +z），x、z 是部件中心，原点是整栋建筑的占地中心。y 是部件底面离地高度，w 是 x 向宽度，d 是 z 向进深，h 是高度。
-形状：box 方体；gable 双坡屋顶（屋脊沿 x 方向，要转向就加 "r":90）；pyr 四棱锥；cyl 圆柱（w、d 是直径）；cone 圆锥。r 是绕竖轴的转角（度），可省略。
+形状：box 方体；gable 双坡屋顶（屋脊沿 x 方向，要转向就加 "r":90）；pyr 四棱锥；cyl 圆柱（w、d 是直径）；cone 圆锥；ball 椭球（w、d、h 是三个方向的直径，y 是最低点的高度，适合树冠、穹顶）。r 是绕竖轴的转角（度），可省略。
 部件从地面往上叠：上层的 y 等于下层的 y+h，不要悬空。"win":true 只加在需要成排窗户的墙体 box 上，其余省略。
 整栋占地不超过 60×60，高度不超过 150，用 4 到 24 个部件，颜色协调，轮廓要一眼能认出是什么。
 示例：{"name":"小住宅","parts":[{"s":"box","x":0,"z":0,"y":0,"w":10,"d":8,"h":5,"c":"#E9E2D0"},{"s":"gable","x":0,"z":0,"y":5,"w":11,"d":9,"h":3.5,"c":"#A8503A"}]}
@@ -2652,7 +2727,7 @@ $('#aiStop').onclick = () => { if (aiCtl) aiCtl.abort(); };
 })();
 /* ───────── 内存表 ───────── */
 function updateMeter() {
-  const ab = JSON.stringify(Object.values(S.assets).map(a => a.parts)).length, na = Object.keys(S.assets).length, tb = TH ? terrGpu() : 0, nv = stat.n + (TH ? CN * CN * CV + terr.skirtN + treeM.n : 0), vb = stat.n * 20 + tb;
+  const ab = JSON.stringify(Object.values(S.assets).map(a => a.parts)).length, na = Object.keys(S.assets).length, tb = TH ? terrGpu() : 0, nv = stat.n + (TH ? CN * CN * CV + terr.skirtN : 0), vb = stat.n * 20 + tb;
   $('#meter').innerHTML = `<dt>资产配方</dt><dd>${fmtB(ab)}</dd><dt>顶点 / 显存</dt><dd>${nv.toLocaleString()} / ${fmtB(vb)}</dd>`;
   if ($('#ledger').hidden) return;
   $('#lg-assets').textContent = `${na} 件 · ${fmtB(ab)}`;

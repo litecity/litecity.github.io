@@ -1,6 +1,6 @@
 /* ───────── 内存表 ───────── */
 function updateMeter() {
-  const ab = JSON.stringify(Object.values(S.assets).map(a => a.parts)).length, na = Object.keys(S.assets).length, tb = TH ? terrGpu() : 0, nv = stat.n + (TH ? CN * CN * CV + terr.skirtN + treeM.n : 0), vb = stat.n * 20 + tb;
+  const ab = JSON.stringify(Object.values(S.assets).map(a => a.parts)).length, na = Object.keys(S.assets).length, tb = TH ? terrGpu() : 0, nv = stat.n + (TH ? CN * CN * CV + terr.skirtN : 0), vb = stat.n * 20 + tb;
   $('#meter').innerHTML = `<dt>资产配方</dt><dd>${fmtB(ab)}</dd><dt>顶点 / 显存</dt><dd>${nv.toLocaleString()} / ${fmtB(vb)}</dd>`;
   if ($('#ledger').hidden) return;
   $('#lg-assets').textContent = `${na} 件 · ${fmtB(ab)}`;

@@ -18,8 +18,8 @@ function frame() {
     if (k >= 1) fly = null; else req();
   }
   if (terrDirty) buildTerrain();
-  if (!shop.open && treesStale()) buildTrees();
   if (dirtyGeom) { buildStatic(); dirtyGeom = false; updateMeter(); }
+  if (!shop.open && treesStale()) buildTrees();
   simFrame(rdt);
   buildDyn(); draw3(); draw2(); inspSync();
 }

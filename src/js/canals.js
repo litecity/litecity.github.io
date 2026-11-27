@@ -68,7 +68,7 @@ function buildTerrain() {
       let nx = (RH[o - (i > 0 ? 1 : 0)] - RH[o + (i < GN ? 1 : 0)]) / (2 * CELL), nz = (RH[o - (j > 0 ? VN : 0)] - RH[o + (j < GN ? VN : 0)]) / (2 * CELL), ny = 1;
       const l = Math.hypot(nx, ny, nz); nx /= l; ny /= l; nz /= l;
       if (h < cmin) cmin = h; if (h > cmax) cmax = h;
-      const fr = TR ? TR[o] / 255 : 0, rk = clamp((1 - ny - 0.06) / 0.14, 0, 1) * clamp(h / 20, 0, 1) * (1 - 0.7 * fr), sn = clamp((h - snow0) / (snow0 * 0.3), 0, 1) * (1 - 0.6 * rk), sd = clamp(-h / 4, 0, 1), dk = 1 - 0.22 * clamp(h / 150, 0, 1), w = wet[o] / 255;
+      const fr = TR ? (TR[o] & 31) / 31 : 0, rk = clamp((1 - ny - 0.06) / 0.14, 0, 1) * clamp(h / 20, 0, 1) * (1 - 0.7 * fr), sn = clamp((h - snow0) / (snow0 * 0.3), 0, 1) * (1 - 0.6 * rk), sd = clamp(-h / 4, 0, 1), dk = 1 - 0.22 * clamp(h / 150, 0, 1), w = wet[o] / 255;
       for (let q = 0; q < 3; q++) { let v = cg[q] * dk; v += (ck[q] - v) * rk; v += (cs[q] - v) * sn; v += (cd[q] - v) * sd; col[q] = v * (1 - FT[q] * fr); }          // 有树的地方压成林地的深绿
       pos[0] = i * CELL - HALF; pos[1] = h; pos[2] = j * CELL - HALF; m.v(pos, nx, ny, nz, col, wet[o] * 0.3);          // 湿度放进 alpha，岸线由着色器按等值线画，不是一格一格的
       if (!(i & 1) && !(j & 1)) {                                              // 平面图底图取隔点，带一点山影

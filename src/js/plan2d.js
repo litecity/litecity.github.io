@@ -6,7 +6,7 @@ function drawAssetPlan(g, asset, s) {
   for (const p of fp(asset).sorted) {
     g.save(); g.translate(p.x * s, p.z * s); if (p.r) g.rotate(p.r * D2R);
     const w = p.w * s, d = p.d * s; g.fillStyle = p.c; g.strokeStyle = 'rgba(0,0,0,.3)'; g.lineWidth = 1;
-    if (p.s === 'cyl' || p.s === 'cone') {
+    if (p.s === 'cyl' || p.s === 'cone' || p.s === 'ball') {
       g.beginPath(); g.ellipse(0, 0, w / 2, d / 2, 0, 0, TAU); g.fill(); g.stroke();
       if (p.s === 'cone') { g.fillStyle = 'rgba(255,255,255,.3)'; g.beginPath(); g.ellipse(0, 0, w / 5, d / 5, 0, 0, TAU); g.fill(); }
     } else {
@@ -69,7 +69,7 @@ function draw2() {
     g.setLineDash([]); g.lineCap = 'round';
     const drawB = b => { g.save(); g.translate(b.x * s, b.z * s); g.rotate(b.r); if (b.sx) g.scale(b.sx, 1); drawAssetPlan(g, S.assets[b.a], s); g.restore(); };
     for (const b of S.blds) drawB(b);
-    if (s > 1.4) { g.font = '600 11px Barlow Condensed, sans-serif'; g.textAlign = 'center'; for (const b of S.blds) if (b.t && S.assets[b.a].label) { g.fillStyle = T.panel; const tx = b.t.split('|')[0], wd = g.measureText(tx).width + 8; g.fillRect(b.x * s - wd / 2, b.z * s + 6, wd, 14); g.fillStyle = T.ink; g.fillText(tx, b.x * s, b.z * s + 17); } }
+    if (s > 1.4) { g.font = '600 11px Barlow Condensed, sans-serif'; g.textAlign = 'center'; for (const b of S.blds) if (b.t && labelOf(S.assets[b.a], b)) { g.fillStyle = T.panel; const tx = b.t.split('|')[0], wd = g.measureText(tx).width + 8; g.fillRect(b.x * s - wd / 2, b.z * s + 6, wd, 14); g.fillStyle = T.ink; g.fillText(tx, b.x * s, b.z * s + 17); } }
     if (sim.on && sim.net && !sim.dirty) {
       const net = sim.net;
       if (sim.heat) { g.lineCap = 'butt'; g.globalAlpha = 0.5;                 // 拥堵热力：每个行车方向按“车速 ÷ 设计车速”上色，没车的方向不画

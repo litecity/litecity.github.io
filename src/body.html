@@ -40,11 +40,11 @@
       <div class="row" id="addRow">
         <button class="btn sm" data-add="box">＋方体</button><button class="btn sm" data-add="gable">＋坡顶</button>
         <button class="btn sm" data-add="pyr">＋锥顶</button><button class="btn sm" data-add="cyl">＋圆柱</button>
-        <button class="btn sm" data-add="cone">＋圆锥</button>
+        <button class="btn sm" data-add="cone">＋圆锥</button><button class="btn sm" data-add="ball">＋椭球</button>
       </div>
       <div class="parts" id="partList"></div>
       <div class="fields" id="fields">
-        <label class="wide">形状<select id="pf-s"><option value="box">方体</option><option value="gable">双坡顶</option><option value="pyr">四棱锥</option><option value="cyl">圆柱</option><option value="cone">圆锥</option></select></label>
+        <label class="wide">形状<select id="pf-s"><option value="box">方体</option><option value="gable">双坡顶</option><option value="pyr">四棱锥</option><option value="cyl">圆柱</option><option value="ball">椭球</option><option value="cone">圆锥</option></select></label>
         <label class="wide">颜色<input type="color" id="pf-c"></label>
         <label>X 左右<input type="number" step="0.5" id="pf-x"></label>
         <label>Z 前后<input type="number" step="0.5" id="pf-z"></label>
@@ -118,6 +118,7 @@
       <div class="fields">
         <label>半径 m<input type="number" id="tr-rad" value="200" step="10" min="20"></label>
         <label>密度<input type="number" id="tr-den" value="0.7" step="0.1" min="0.05" max="1"></label>
+        <label class="wide" style="grid-column:1/-1">林子<select id="tr-reg"></select></label>
         <label class="chk"><input type="checkbox" id="tr-erase"> 擦除</label>
       </div>
       <div class="row"><button class="btn sm" id="tr-mode" aria-pressed="false">在地图上刷树</button><button class="btn sm warn" id="tr-clear">清除全部树</button></div>

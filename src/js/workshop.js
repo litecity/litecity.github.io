@@ -49,7 +49,7 @@ $('#fields').addEventListener('input', e => {
   shopRefresh(true);
 });
 $('#addRow').addEventListener('click', e => {
-  const s = e.target.dataset.add; if (!s) return; const f = fp(shop.draft), top = shop.draft.parts.length ? f.h : 0, roof = s !== 'box' && s !== 'cyl';
+  const s = e.target.dataset.add; if (!s) return; const f = fp(shop.draft), top = shop.draft.parts.length ? f.h : 0, roof = s !== 'box' && s !== 'cyl' && s !== 'ball';
   shop.draft.parts.push(P(s, 0, 0, roof ? top : 0, roof ? Math.min(f.w, 12) : 6, roof ? Math.min(f.d, 12) : 6, roof ? 3 : 6, roof ? '#8A4B3C' : '#C9CFD4'));
   selectPart(shop.draft.parts.length - 1);
 });
@@ -100,9 +100,9 @@ $('#aiRand').onclick = () => { loadDraft(randomDraft($('#aiPrompt').value)); $('
 // AI 生成：Claude 只回一份 JSON 配方
 let sample = null, aiCtl = null;
 const AI_RULES = `你是低多边形矢量建筑设计器。按描述设计一栋建筑，只回复一个 JSON 对象，不要其他文字：
-{"name":"简短中文名","parts":[{"s":"box|gable|pyr|cyl|cone","x":0,"z":0,"y":0,"w":10,"d":8,"h":5,"c":"#rrggbb","r":0,"win":true}]}
+{"name":"简短中文名","parts":[{"s":"box|gable|pyr|cyl|cone|ball","x":0,"z":0,"y":0,"w":10,"d":8,"h":5,"c":"#rrggbb","r":0,"win":true}]}
 规则：单位是米。x 向右，z 向前（建筑正面朝 +z），x、z 是部件中心，原点是整栋建筑的占地中心。y 是部件底面离地高度，w 是 x 向宽度，d 是 z 向进深，h 是高度。
-形状：box 方体；gable 双坡屋顶（屋脊沿 x 方向，要转向就加 "r":90）；pyr 四棱锥；cyl 圆柱（w、d 是直径）；cone 圆锥。r 是绕竖轴的转角（度），可省略。
+形状：box 方体；gable 双坡屋顶（屋脊沿 x 方向，要转向就加 "r":90）；pyr 四棱锥；cyl 圆柱（w、d 是直径）；cone 圆锥；ball 椭球（w、d、h 是三个方向的直径，y 是最低点的高度，适合树冠、穹顶）。r 是绕竖轴的转角（度），可省略。
 部件从地面往上叠：上层的 y 等于下层的 y+h，不要悬空。"win":true 只加在需要成排窗户的墙体 box 上，其余省略。
 整栋占地不超过 60×60，高度不超过 150，用 4 到 24 个部件，颜色协调，轮廓要一眼能认出是什么。
 示例：{"name":"小住宅","parts":[{"s":"box","x":0,"z":0,"y":0,"w":10,"d":8,"h":5,"c":"#E9E2D0"},{"s":"gable","x":0,"z":0,"y":5,"w":11,"d":9,"h":3.5,"c":"#A8503A"}]}

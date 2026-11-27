@@ -4,7 +4,7 @@ const LANE_SYM = { F: '↑', B: '↓', S: '急', X: '✕', M: '▮' };
 function inspSync() {                                                            // 每帧比一下“选中了什么”，变了才重画面板
   const el = $('#insp'), s = ui.tool === 'select' && !shop.open ? ui.sel : null, r = s && s.k === 'road' ? S.roads[s.i] : null, b = s && s.k === 'bld' ? S.blds[s.i] : null;
   const jn = ui.tool === 'junction' && ui.node && !shop.open ? J.nodes.find(n => nodeKeyOf(n) === ui.node) : null;
-  const key = jn ? 'j' + ui.node + jn.arms.length + (ui.jl || '') + JSON.stringify((S.env.jx || {})[ui.node] || 0) : r ? 'r' + s.i + r.ln + (r.m | 0) : b ? 'b' + s.i + b.a + JSON.stringify(b.f || 0) + sim.on + (S.assets[b.a].prop ? 'p' : '') : '';
+  const key = jn ? 'j' + ui.node + jn.arms.length + (ui.jl || '') + JSON.stringify((S.env.jx || {})[ui.node] || 0) : r ? 'r' + s.i + r.ln + (r.m | 0) : b ? 'b' + s.i + b.a + JSON.stringify(b.f || 0) + sim.on + (S.assets[b.a].prop ? 'p' + (b.st || '') : '') : '';
   if (key === inspKey) { if (b && sim.on) inspLive(s.i); if (jn) jxLive(); return; }
   inspKey = key; el.hidden = !key; if (!key) return;
   if (jn) return jxRender(jn);
@@ -22,7 +22,7 @@ function inspSync() {                                                           
       <div class="note">切开后两条路并排、车道原位不动；把其中一条的远端拖走并调弯，就是匝道。车道首尾对齐的地方车会直接开过去，不需要路口。</div>`;
   } else if (S.assets[b.a].prop) {
     const as = S.assets[b.a];
-    el.innerHTML = `<h3>${as.name} · 摆件</h3>` + (as.label ? `<label>牌面文字<input type="text" data-act="pt" maxlength="60" value="${(b.t || '').replace(/"/g, '&quot;')}"></label><div class="note">用竖线 | 换行，最多 4 行。可以直接打箭头：↑ ↓ ← → ↖ ↗。</div>` : '') + '<div class="note">摆件不产生人流。拖动可移动，R 旋转。勾着“建筑贴路”时，路牌会立在路边并面向来车，门架会横跨整条路。</div>';
+    el.innerHTML = `<h3>${as.name} · 摆件</h3>` + (as.variants ? `<label>样式 <select data-act="pst"><option value="us" ${b.st !== 'cn' ? 'selected' : ''}>美式</option><option value="cn" ${b.st === 'cn' ? 'selected' : ''}>中国高速式</option></select></label>` : '') + (as.label ? `<label>牌面文字<input type="text" data-act="pt" maxlength="60" value="${(b.t || '').replace(/"/g, '&quot;')}"></label><div class="note">用竖线 | 换行，最多 4 行。可以直接打箭头：↑ ↓ ← → ↖ ↗。</div>` : '') + '<div class="note">摆件不产生人流。拖动可移动，R 旋转。勾着“建筑贴路”时，路牌会立在路边并面向来车，门架会横跨整条路。</div>';
   } else {
     const f = flowOf(b), own = b.f || {};
     el.innerHTML = `<h3>${S.assets[b.a].name} · 人流</h3>
@@ -64,6 +64,7 @@ $('#insp').addEventListener('change', e => {
     else if (act === 'preset' && e.target.value) { pushUndo(); setLanes(r, e.target.value); changed(); }
   } else {
     const b = S.blds[s.i]; if (!b) return; if (act === 'pt') { pushUndo(); b.t = e.target.value.slice(0, 60); changed(); return; }
+    if (act === 'pst') { pushUndo(); const as = S.assets[b.a], old = labelOf(as, b).def; b.st = e.target.value; ui.signStyle = b.st; if (!b.t || b.t === old) b.t = labelOf(as, b).def; changed(); return; }   // 换样式；牌面还是默认字的话一起换成新样式的默认字
     const f = flowOf(b), nums = v => { const a = String(v).split(/[,，\s]+/).map(Number).filter(Number.isFinite).map(x => clamp(x, 0, 1)); while (a.length < 24) a.push(a.length ? a[a.length - 1] : 0); return a.slice(0, 24); };
     pushUndo(); b.f = { p: b.f && b.f.p || '', i: f.i, o: f.o, ...(b.f || {}) };
     if (act === 'fp') { if (e.target.value) b.f.p = e.target.value; else delete b.f; }
