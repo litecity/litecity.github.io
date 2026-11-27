@@ -22,6 +22,7 @@ function addRoad(a, b, c) {
   S.roads.push(r); normalizeRoads([r]); const i = S.roads.indexOf(r); ui.sel = i >= 0 ? { k: 'road', i } : null; changed();
 }
 function press(w, forced) {
+  if (ui.tool === 'district') { ui.lasso = [[w[0], w[1]]]; ui.drag = { k: 'lasso' }; return true; }
   if (ui.tool === 'junction' && ui.node) {                                       // 车道连接：先点进口车道的实心点，再点它能去的出口车道的空心点
     const n = J.nodes.find(q => nodeKeyOf(q) === ui.node), ln = n && jxLanes(n), near = l => l.find(q => Math.hypot(q.x - w[0], q.z - w[1]) < Math.max(2, ui.tol * 0.6));
     const i = ln && near(ln.ins), o = ln && ui.jl && near(ln.outs);
@@ -91,11 +92,12 @@ function dragTo(w) {
     const b = S.blds[ui.sel.i]; if (!b) return;
     b.x = w[0] + d.dx; b.z = w[1] + d.dz; if (ui.snap) snapToRoad(b); dirtyGeom = true;
   } else if (d && d.k === 'brush') brush(w);
+  else if (d && d.k === 'lasso') { const l = ui.lasso, q = l[l.length - 1]; if (Math.hypot(w[0] - q[0], w[1] - q[1]) > Math.max(4, ui.tol * 0.6)) l.push([w[0], w[1]]); }
   else if (d && d.k === 'tbrush') paintTrees(w);
   req();
 }
 function release(w, isDrag) {
-  if (ui.drag) { const dg = ui.drag, k = dg.k; ui.drag = null; if (k === 'brush') { saveTerr(); terrChanged(); } else if (k === 'tbrush') { saveTerr(); req(); }
+  if (ui.drag) { const dg = ui.drag, k = dg.k; ui.drag = null; if (k === 'brush') { saveTerr(); terrChanged(); } else if (k === 'tbrush') { saveTerr(); req(); } else if (k === 'lasso') dsEndLasso();
     else { if (k === 'h' && ui.sel) { const r = S.roads[ui.sel.i]; if (r) {
         const set = new Set([r, ...dg.group.map(g => g.r)]);                       // 拖过的路：端点落到新位置的地面高度，重算纵断面并重新平整
         if (TH && dg.h !== 'm' && dg.group.length) { const p = r[dg.h], y = Math.round(elevAt(p[0], p[1]) * 10) / 10; for (const g of dg.group) if (g.r.h) g.r.h[g.e === 'a' ? 0 : g.r.h.length - 1] = y; }
@@ -107,14 +109,14 @@ function release(w, isDrag) {
 }
 function setTool(t) {
   ui.tool = t; ui.rs = ui.rc = null; if (t !== 'select') ui.sel = ui.cand = null; if (t !== 'junction') ui.node = null;
-  $('#terra').hidden = t !== 'terrain'; $('#stage').classList.toggle('shopping', t === 'terrain'); if (t === 'terrain') updateTerrRead();
+  $('#terra').hidden = t !== 'terrain'; $('#dist').hidden = t !== 'district'; $('#stage').classList.toggle('shopping', t === 'terrain' || t === 'district'); ui.lasso = null; if (t === 'terrain') updateTerrRead();
   document.querySelectorAll('#tools button').forEach(b => b.setAttribute('aria-pressed', b.dataset.tool === t));
   document.querySelectorAll('#palette .card[data-id]').forEach(c => c.setAttribute('aria-pressed', t === 'build' && c.dataset.id === ui.asset));
   setHint(); req();
 }
 function setHint() {
   const H = { select: '点一下预选（虚线框），再点一下才选中。选中的路可拖菱形手柄调弯、拖端点改走向；选中的建筑可拖动，R 旋转，Delete 删除。双击空地让实景飞过去。',
-    road: '直线：按住拖出或点两下。自由曲线：点三下。贴地的路会自动平整地形；“路面”选桥或隧道时，路在两端之间架空或穿山，同一高度相交才生成路口。选隧道时地形半透明。', build: '在任意一侧点击放置。靠近道路会自动贴边并面向道路，R 旋转 15°。', erase: '点击道路或建筑即可拆除。', junction: '点一个三岔以上的路口：设红绿灯的每一步放行哪些方向，或给各进口立主路、让行标志。',
+    road: '直线：按住拖出或点两下。自由曲线：点三下。贴地的路会自动平整地形；“路面”选桥或隧道时，路在两端之间架空或穿山，同一高度相交才生成路口。选隧道时地形半透明。', build: '在任意一侧点击放置。靠近道路会自动贴边并面向道路，R 旋转 15°。', erase: '点击道路或建筑即可拆除。', district: '在平面图上按住拖动，圈出一片地（只点一下则放一块方地）。然后在左边写一句话，点“生成”。', junction: '点一个三岔以上的路口：设红绿灯的每一步放行哪些方向，或给各进口立主路、让行标志。',
     terrain: '按住拖动，把地面抹到目标海拔（挖湖就填负数）。按 E 吸取光标处海拔。' };
   $('#hint2').textContent = shop.open ? '车间平面：点选并拖动部件。下方是正面（朝路的一侧）。' : ui.tool === 'terrain' && ui.tmode === 'tree' ? '按住拖动刷树；勾“擦除”则刷掉。远处显示为林地的深色，镜头拉近才出现一棵棵树。' : ui.tool === 'terrain' && ui.tmode === 'canal' ? '像修路一样画沟渠：直线拖出或点两下，自由曲线点三下（顶栏“画法”）。渠底从起点向终点一路下降，上游陡、下游缓。' : ui.tool === 'terrain' && ui.tmode === 'water' ? '点一下放水点：与它连通、低于水面海拔的地方会淹成一片平的水面。再点水点可删除。按 E 取光标处海拔 +5 m。' : H[ui.tool];
   $('#tag2').textContent = shop.open ? '车间 · 俯视' : '平面图 · 俯视';

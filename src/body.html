@@ -8,6 +8,7 @@
       <button data-tool="erase" aria-pressed="false">拆除<kbd>4</kbd></button>
       <button data-tool="terrain" aria-pressed="false">地形<kbd>5</kbd></button>
       <button data-tool="junction" aria-pressed="false">路口<kbd>6</kbd></button>
+      <button data-tool="district" aria-pressed="false">街区<kbd>7</kbd></button>
     </div>
     <div class="opts">
       <label>画法 <select id="roadMode"><option value="line">直线</option><option value="curve">自由曲线</option></select></label>
@@ -64,6 +65,30 @@
         <button class="btn pri" id="shopSave">保存到资产架</button>
         <button class="btn warn" id="shopDelete" hidden>删除此资产</button>
       </div>
+    </aside>
+    <aside class="shop" id="dist" hidden>
+      <div class="row" style="justify-content:space-between"><h2>生成街区</h2><button class="btn sm" id="distClose">关闭</button></div>
+      <h3>① 圈一片地</h3>
+      <div class="status" id="ds-site"></div>
+      <h3>② 说一句话</h3>
+      <textarea id="ds-prompt" maxlength="300" placeholder="例如：建一个安静的住宅小区，带一个小公园"></textarea>
+      <div class="row"><button class="btn pri" id="ds-go">生成</button><button class="btn" id="ds-regen">换个样子重新生成</button></div>
+      <div class="status" id="ds-status"></div>
+      <h3>③ 规划参数（可以改了再生成）</h3>
+      <div class="fields">
+        <label class="wide">路网<select id="ds-layout"><option value="grid">方格网</option><option value="radial">环形加放射</option><option value="organic">顺地势的弯路</option></select></label>
+        <label class="wide">街块边长 m<input type="number" id="ds-block" step="10" min="60" max="220"></label>
+        <label>住宅<input type="number" id="ds-res" step="5" min="0" max="100"></label>
+        <label>商业<input type="number" id="ds-com" step="5" min="0" max="100"></label>
+        <label>办公<input type="number" id="ds-off" step="5" min="0" max="100"></label>
+        <label>工业<input type="number" id="ds-ind" step="5" min="0" max="100"></label>
+        <label>公园<input type="number" id="ds-park" step="5" min="0" max="100"></label>
+        <label>强度 0–1<input type="number" id="ds-den" step="0.1" min="0" max="1"></label>
+        <label class="wide">种子<input type="number" id="ds-seed" step="1" min="0"></label>
+        <label class="chk"><input type="checkbox" id="ds-trees"> 行道树</label>
+      </div>
+      <div class="row"><button class="btn" id="ds-build">按上面的参数生成</button></div>
+      <div class="note" style="color:var(--mute);font-size:12px;line-height:1.5">住宅、商业等是比重，不必加起来等于 100。生成只在圈定范围内进行，自动避开水面和太陡的坡；和已有道路相交处会接成路口。生成的都是普通的路和建筑，切到“选择”就能改。</div>
     </aside>
     <aside class="shop" id="terra" hidden>
       <div class="row" style="justify-content:space-between"><h2>地形</h2><button class="btn sm" id="terraClose">关闭</button></div>

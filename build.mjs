@@ -8,7 +8,7 @@ import { Script } from 'node:vm';
 
 // 脚本模块按这个顺序拼进同一个作用域（它们共享状态，顺序就是依赖顺序）
 const MODULES = ['core', 'assets', 'state', 'lanes', 'roads', 'tools', 'inspect', 'mesh', 'terrain', 'canals', 'trees', 'theme', 'sky', 'sim', 'shaders', 'render3d',
-  'plan2d', 'loop', 'input', 'topbar', 'palette', 'workshop', 'meter', 'seed', 'boot'];
+  'plan2d', 'loop', 'input', 'topbar', 'palette', 'workshop', 'district', 'meter', 'seed', 'boot'];
 const read = p => readFileSync(new URL(p, import.meta.url), 'utf8').replace(/\n+$/, '') + '\n';
 
 const css = read('src/style.css'), body = read('src/body.html');

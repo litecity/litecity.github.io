@@ -79,6 +79,11 @@ function draw2() {
       if (s > 0.7) for (const nd of net.nodes) { if (!nd.steps) continue; const st = nd.steps[simStepOf(nd)];                 // 红绿灯：每个进口一个小圆点
         for (const a of nd.arms) { if (!a.has) continue; const bits = st.g.get(a.rd) | 0; g.fillStyle = bits === 7 ? '#2E9B57' : bits ? '#E3A400' : '#C8402E'; g.beginPath(); g.arc((a.x - a.hx * 9) * s, (a.z - a.hz * 9) * s, clamp(1.6 * s, 3, 7), 0, TAU); g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 1; g.stroke(); } }
     }
+    if (ui.tool === 'district') {                                              // 正在圈的线，和已经圈好的地块
+      const path = P => { g.beginPath(); P.forEach((p, i) => i ? g.lineTo(p[0] * s, p[1] * s) : g.moveTo(p[0] * s, p[1] * s)); };
+      if (dsSite) { path(dsSite.poly); g.closePath(); g.fillStyle = T.accent; g.globalAlpha = 0.14; g.fill(); g.globalAlpha = 1; g.strokeStyle = T.accent; g.lineWidth = 2.5; g.stroke(); }
+      if (ui.lasso && ui.lasso.length > 1) { path(ui.lasso); g.strokeStyle = T.sel; g.lineWidth = 2; g.setLineDash([7, 5]); g.stroke(); g.setLineDash([]); }
+    }
     if (ui.tool === 'junction') for (const n of J.nodes) {                     // 路口工具：所有可设置的路口画一圈，选中的加粗并标出各进口和车道连接
       const selN = nodeKeyOf(n) === ui.node, rr = Math.max(n.R, ...n.arms.map(a => a.sb)) + 4; g.strokeStyle = selN ? T.sel : T.accent; g.lineWidth = selN ? 3 : 1.5; g.setLineDash(selN ? [] : [5, 4]); g.beginPath(); g.arc(n.x * s, n.z * s, rr * s, 0, TAU); g.stroke(); g.setLineDash([]);
       if (!selN) continue;
